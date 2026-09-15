@@ -28,6 +28,12 @@
   --measure-content: 40rem;
   --measure-wide: 72rem;
   --measure-full: 96rem;
+
+  /* Nav breakpoint — where the header switches from the hamburger to the
+     inline desktop nav. Wider than Tailwind's default `lg` so tablets keep
+     the hamburger and the desktop nav only appears once logo + links have
+     real room to breathe. */
+  --breakpoint-nav: 75rem;
 }
 
 html {
@@ -108,5 +114,24 @@ input:focus-visible, textarea:focus-visible, select:focus-visible {
   .reveal {
     opacity: 1;
     transform: none;
+  }
+}
+
+/* Mobile/tablet nav panel — mirrors .reveal's easing so it feels like the
+   same design system, just faster since it's a direct response to a tap. */
+#mobile-menu {
+  opacity: 0;
+  transform: translateY(-8px);
+  transition: opacity 220ms ease, transform 220ms ease;
+}
+
+#mobile-menu.is-open {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #mobile-menu {
+    transition: none;
   }
 }
