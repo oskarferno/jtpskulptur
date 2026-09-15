@@ -14,10 +14,10 @@ function isActive(href: string) {
 ---
 
 <header class="border-b border-(--color-line)">
-  <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-6 sm:px-8">
-    <a href="/" class="font-display text-lg tracking-widest uppercase">jtp.skulptur</a>
+  <div class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-4 sm:flex-nowrap sm:px-8 sm:py-6">
+    <a href="/" class="font-display text-base tracking-wide uppercase sm:text-lg sm:tracking-widest">jtp.skulptur</a>
     <nav aria-label="Main">
-      <ul class="flex gap-6 text-sm tracking-wide">
+      <ul class="flex gap-3 text-xs tracking-wide sm:gap-6 sm:text-sm">
         {
           links.map((link) => (
             <li>
