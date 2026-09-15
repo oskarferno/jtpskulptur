@@ -19,6 +19,7 @@
     "@tailwindcss/vite": "^4.3.3",
     "astro": "^7.3.2",
     "image-size": "^2.0.4",
+    "sharp": "^0.35.4",
     "tailwindcss": "^4.3.3",
     "wrangler": "^4.131.2"
   },
