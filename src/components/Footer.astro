@@ -1,0 +1,28 @@
+---
+import { supabase } from '../lib/supabase';
+
+const { data: socialLinks } = await supabase
+  .from('social_links')
+  .select('id, label, url')
+  .eq('published', true)
+  .order('display_order');
+---
+
+<footer class="border-t border-(--color-line) py-10">
+  <div class="mx-auto flex max-w-6xl flex-col items-center gap-3 px-6 text-sm text-(--color-ink-soft) sm:px-8">
+    {
+      socialLinks && socialLinks.length > 0 && (
+        <ul class="flex gap-4">
+          {socialLinks.map((link) => (
+            <li>
+              <a href={link.url} class="hover:text-(--color-clay)" target="_blank" rel="noopener noreferrer">
+                {link.label}
+              </a>
+            </li>
+          ))}
+        </ul>
+      )
+    }
+    <p>&copy; {new Date().getFullYear()} jtp.skulptur — sculpture · clay · ceramics</p>
+  </div>
+</footer>

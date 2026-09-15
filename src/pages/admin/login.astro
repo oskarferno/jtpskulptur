@@ -1,0 +1,45 @@
+---
+import '../../styles/global.css';
+
+export const prerender = false;
+
+const error = Astro.url.searchParams.get('error');
+const errorMessage =
+  error === 'invalid'
+    ? 'Incorrect email or password.'
+    : error === 'missing'
+      ? 'Please enter your email and password.'
+      : null;
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Admin login — jtp.skulptur</title>
+  </head>
+  <body class="flex min-h-screen items-center justify-center bg-(--color-paper) text-(--color-ink)">
+    <form method="POST" action="/api/admin/login" class="w-full max-w-sm space-y-4 px-6">
+      <h1 class="font-display text-2xl">jtp.skulptur admin</h1>
+
+      {errorMessage && <p class="text-sm text-red-700">{errorMessage}</p>}
+
+      <div>
+        <label for="email" class="block text-sm text-(--color-ink-soft)">Email</label>
+        <input id="email" name="email" type="email" required autocomplete="username"
+          class="mt-1 w-full border border-(--color-line) bg-transparent px-3 py-2 focus:border-(--color-clay) focus:outline-none" />
+      </div>
+      <div>
+        <label for="password" class="block text-sm text-(--color-ink-soft)">Password</label>
+        <input id="password" name="password" type="password" required autocomplete="current-password"
+          class="mt-1 w-full border border-(--color-line) bg-transparent px-3 py-2 focus:border-(--color-clay) focus:outline-none" />
+      </div>
+
+      <button type="submit"
+        class="w-full border border-(--color-ink) px-6 py-2 text-sm tracking-wide uppercase transition-colors hover:bg-(--color-ink) hover:text-(--color-paper)">
+        Sign in
+      </button>
+    </form>
+  </body>
+</html>

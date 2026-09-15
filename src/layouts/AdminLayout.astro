@@ -1,0 +1,35 @@
+---
+import '../styles/global.css';
+
+export const prerender = false;
+
+interface Props {
+  title: string;
+}
+
+const { title } = Astro.props;
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>{title} — jtp.skulptur admin</title>
+  </head>
+  <body class="min-h-screen bg-(--color-paper) text-(--color-ink)">
+    <header class="flex items-center justify-between border-b border-(--color-line) px-6 py-4">
+      <a href="/admin" class="font-display text-lg">jtp.skulptur admin</a>
+      <form method="POST" action="/api/admin/logout">
+        <button type="submit" class="text-sm text-(--color-ink-soft) hover:text-(--color-clay)">Sign out</button>
+      </form>
+    </header>
+    <main class="mx-auto max-w-4xl px-6 py-10">
+      <a href="/admin" class="text-sm text-(--color-ink-soft) hover:text-(--color-clay)">&larr; Dashboard</a>
+      <h1 class="font-display mt-4 text-2xl">{title}</h1>
+      <div class="mt-6">
+        <slot />
+      </div>
+    </main>
+  </body>
+</html>

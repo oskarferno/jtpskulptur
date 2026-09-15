@@ -1,0 +1,32 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+
+const supabase = Astro.locals.supabase!;
+
+const { data: messages } = await supabase
+  .from('contact_messages')
+  .select('id, name, email, subject, message, read, created_at')
+  .order('created_at', { ascending: false });
+---
+
+<AdminLayout title="Contact messages">
+  {
+    messages && messages.length > 0 ? (
+      <ul class="space-y-4">
+        {messages.map((m) => (
+          <li class="border border-(--color-line) p-4">
+            <div class="flex items-center justify-between text-sm text-(--color-ink-soft)">
+              <span>{new Date(m.created_at).toLocaleString()}</span>
+              {!m.read && <span class="text-(--color-clay)">unread</span>}
+            </div>
+            <p class="mt-2 font-medium">{m.name} &lt;{m.email}&gt;</p>
+            {m.subject && <p class="text-sm text-(--color-ink-soft)">{m.subject}</p>}
+            <p class="mt-2 whitespace-pre-line">{m.message}</p>
+          </li>
+        ))}
+      </ul>
+    ) : (
+      <p class="text-(--color-ink-soft)">No messages yet.</p>
+    )
+  }
+</AdminLayout>

@@ -1,0 +1,40 @@
+---
+const { pathname } = Astro.url;
+
+const links = [
+  { href: '/', label: 'Portfolio' },
+  { href: '/about', label: 'About' },
+  { href: '/contact', label: 'Contact' },
+];
+
+function isActive(href: string) {
+  if (href === '/') return pathname === '/';
+  return pathname.startsWith(href);
+}
+---
+
+<header class="border-b border-(--color-line)">
+  <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-6 sm:px-8">
+    <a href="/" class="font-display text-lg tracking-widest uppercase">jtp.skulptur</a>
+    <nav aria-label="Main">
+      <ul class="flex gap-6 text-sm tracking-wide">
+        {
+          links.map((link) => (
+            <li>
+              <a
+                href={link.href}
+                class:list={[
+                  'transition-colors hover:text-(--color-clay)',
+                  isActive(link.href) ? 'text-(--color-clay)' : 'text-(--color-ink-soft)',
+                ]}
+                aria-current={isActive(link.href) ? 'page' : undefined}
+              >
+                {link.label}
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    </nav>
+  </div>
+</header>

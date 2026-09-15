@@ -1,0 +1,91 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { supabase } from '../lib/supabase';
+import { publicMediaUrl } from '../lib/media';
+
+const { data: about } = await supabase
+  .from('about_content')
+  .select(
+    `artist_name, short_bio, full_bio, artist_statement, education, awards, collections, press,
+     portrait:portrait_media_id (storage_path, alt_text),
+     cv:cv_media_id (storage_path)`
+  )
+  .single();
+
+type ListEntry = { year?: string; label?: string; description?: string };
+const education = (about?.education ?? []) as ListEntry[];
+const awards = (about?.awards ?? []) as ListEntry[];
+const collections = (about?.collections ?? []) as ListEntry[];
+const press = (about?.press ?? []) as ListEntry[];
+---
+
+<Layout title={`About — ${about?.artist_name ?? 'jtp.skulptur'}`} description={about?.short_bio ?? undefined}>
+  <article class="mx-auto max-w-3xl px-6 py-12 sm:px-8">
+    <h1 class="font-display text-3xl">About</h1>
+
+    {about?.portrait && (
+      <img
+        src={publicMediaUrl('site-media', about.portrait.storage_path)}
+        alt={about.portrait.alt_text ?? about?.artist_name ?? 'Portrait'}
+        class="mt-8 aspect-square w-48 rounded-full object-cover"
+      />
+    )}
+
+    {about?.full_bio && <p class="mt-8 max-w-prose leading-relaxed whitespace-pre-line">{about.full_bio}</p>}
+
+    {about?.artist_statement && (
+      <blockquote class="mt-8 max-w-prose border-l-2 border-(--color-clay) pl-4 italic text-(--color-ink-soft)">
+        {about.artist_statement}
+      </blockquote>
+    )}
+
+    {education.length > 0 && (
+      <section class="mt-10">
+        <h2 class="font-display text-xl">Education</h2>
+        <ul class="mt-3 space-y-1 text-sm">
+          {education.map((item) => <li>{[item.year, item.label ?? item.description].filter(Boolean).join(' — ')}</li>)}
+        </ul>
+      </section>
+    )}
+
+    {awards.length > 0 && (
+      <section class="mt-10">
+        <h2 class="font-display text-xl">Awards</h2>
+        <ul class="mt-3 space-y-1 text-sm">
+          {awards.map((item) => <li>{[item.year, item.label ?? item.description].filter(Boolean).join(' — ')}</li>)}
+        </ul>
+      </section>
+    )}
+
+    {collections.length > 0 && (
+      <section class="mt-10">
+        <h2 class="font-display text-xl">Collections</h2>
+        <ul class="mt-3 space-y-1 text-sm">
+          {collections.map((item) => <li>{[item.year, item.label ?? item.description].filter(Boolean).join(' — ')}</li>)}
+        </ul>
+      </section>
+    )}
+
+    {press.length > 0 && (
+      <section class="mt-10">
+        <h2 class="font-display text-xl">Press</h2>
+        <ul class="mt-3 space-y-1 text-sm">
+          {press.map((item) => <li>{[item.year, item.label ?? item.description].filter(Boolean).join(' — ')}</li>)}
+        </ul>
+      </section>
+    )}
+
+    {about?.cv && (
+      <p class="mt-10">
+        <a
+          href={publicMediaUrl('documents', about.cv.storage_path)}
+          class="text-sm underline hover:text-(--color-clay)"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Download CV
+        </a>
+      </p>
+    )}
+  </article>
+</Layout>

@@ -1,0 +1,26 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+
+const supabase = Astro.locals.supabase!;
+const { data: exhibitions } = await supabase
+  .from('exhibitions')
+  .select('id, title, venue, start_date, published')
+  .order('start_date', { ascending: false });
+---
+
+<AdminLayout title="Exhibitions">
+  {
+    exhibitions && exhibitions.length > 0 ? (
+      <ul class="divide-y divide-(--color-line) border border-(--color-line)">
+        {exhibitions.map((e) => (
+          <li class="flex items-center justify-between px-4 py-3">
+            <span>{e.title}{e.venue ? ` — ${e.venue}` : ''}</span>
+            <span class="text-sm text-(--color-ink-soft)">{e.published ? 'published' : 'draft'}</span>
+          </li>
+        ))}
+      </ul>
+    ) : (
+      <p class="text-(--color-ink-soft)">No exhibitions yet.</p>
+    )
+  }
+</AdminLayout>

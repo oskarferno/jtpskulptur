@@ -1,0 +1,34 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+
+const supabase = Astro.locals.supabase!;
+
+const { data: artworks } = await supabase
+  .from('artworks')
+  .select('id, title, slug, year, published, featured, display_order')
+  .order('display_order');
+---
+
+<AdminLayout title="Portfolio">
+  <p class="text-sm text-(--color-ink-soft)">
+    Create, publish, and reorder artworks. Full editing (images, materials, dimensions) lands once the
+    Supabase project and Storage buckets are connected.
+  </p>
+  {
+    artworks && artworks.length > 0 ? (
+      <ul class="mt-6 divide-y divide-(--color-line) border border-(--color-line)">
+        {artworks.map((a) => (
+          <li class="flex items-center justify-between px-4 py-3">
+            <span>{a.title}</span>
+            <span class="text-sm text-(--color-ink-soft)">
+              {a.published ? 'published' : 'draft'}
+              {a.featured ? ' · featured' : ''}
+            </span>
+          </li>
+        ))}
+      </ul>
+    ) : (
+      <p class="mt-6 text-(--color-ink-soft)">No artworks yet.</p>
+    )
+  }
+</AdminLayout>

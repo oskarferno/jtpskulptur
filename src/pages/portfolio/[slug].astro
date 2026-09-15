@@ -1,0 +1,73 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { supabase } from '../../lib/supabase';
+import { publicMediaUrl } from '../../lib/media';
+
+const { slug } = Astro.params;
+
+if (!slug) {
+  return Astro.redirect('/404');
+}
+
+const { data: artwork } = await supabase
+  .from('artworks')
+  .select(
+    `id, title, year, description, material, dimensions, series, seo_title, seo_description,
+     primary_media:primary_image_id (storage_path, alt_text, width, height),
+     artwork_images (display_order, caption, media:media_id (storage_path, alt_text, width, height))`
+  )
+  .eq('slug', slug)
+  .eq('published', true)
+  .single();
+
+if (!artwork) {
+  return Astro.redirect('/404');
+}
+
+const galleryImages = (artwork.artwork_images ?? []).sort((a, b) => a.display_order - b.display_order);
+const title = artwork.seo_title ?? `${artwork.title} — jtp.skulptur`;
+const description = artwork.seo_description ?? artwork.description ?? undefined;
+const ogImage = artwork.primary_media ? publicMediaUrl('artwork-images', artwork.primary_media.storage_path) : undefined;
+---
+
+<Layout title={title} description={description} ogImage={ogImage}>
+  <article class="mx-auto max-w-4xl px-6 py-12 sm:px-8">
+    <a href="/" class="text-sm text-(--color-ink-soft) hover:text-(--color-clay)">&larr; Portfolio</a>
+
+    <h1 class="font-display mt-6 text-3xl">{artwork.title}</h1>
+    <p class="mt-1 text-(--color-ink-soft)">
+      {[artwork.year, artwork.material, artwork.dimensions].filter(Boolean).join(' · ')}
+    </p>
+    {artwork.series && <p class="mt-1 text-sm text-(--color-ink-soft)">Series: {artwork.series}</p>}
+
+    {artwork.primary_media && (
+      <img
+        src={publicMediaUrl('artwork-images', artwork.primary_media.storage_path)}
+        alt={artwork.primary_media.alt_text ?? artwork.title}
+        width={artwork.primary_media.width ?? undefined}
+        height={artwork.primary_media.height ?? undefined}
+        class="mt-8 w-full bg-(--color-paper-raised) object-cover"
+      />
+    )}
+
+    {artwork.description && <p class="mt-8 max-w-prose leading-relaxed">{artwork.description}</p>}
+
+    {galleryImages.length > 0 && (
+      <div class="mt-10 grid grid-cols-2 gap-2 sm:grid-cols-3">
+        {galleryImages.map(({ media, caption }) => media && (
+          <figure>
+            <img
+              src={publicMediaUrl('artwork-images', media.storage_path)}
+              alt={media.alt_text ?? artwork.title}
+              width={media.width ?? undefined}
+              height={media.height ?? undefined}
+              loading="lazy"
+              class="aspect-square w-full bg-(--color-paper-raised) object-cover"
+            />
+            {caption && <figcaption class="mt-1 text-xs text-(--color-ink-soft)">{caption}</figcaption>}
+          </figure>
+        ))}
+      </div>
+    )}
+  </article>
+</Layout>

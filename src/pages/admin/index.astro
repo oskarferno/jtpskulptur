@@ -1,0 +1,62 @@
+---
+import '../../styles/global.css';
+
+export const prerender = false;
+
+const supabase = Astro.locals.supabase;
+
+const [{ count: draftCount }, { count: unreadCount }] = supabase
+  ? await Promise.all([
+      supabase.from('artworks').select('id', { count: 'exact', head: true }).eq('published', false),
+      supabase.from('contact_messages').select('id', { count: 'exact', head: true }).eq('read', false),
+    ])
+  : [{ count: null }, { count: null }];
+
+const sections = [
+  { href: '/admin/portfolio', label: 'Portfolio' },
+  { href: '/admin/about', label: 'About' },
+  { href: '/admin/exhibitions', label: 'Exhibitions' },
+  { href: '/admin/journal', label: 'News / Journal' },
+  { href: '/admin/media', label: 'Media' },
+  { href: '/admin/contact', label: 'Contact' },
+  { href: '/admin/settings', label: 'Site Settings' },
+];
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Dashboard — jtp.skulptur admin</title>
+  </head>
+  <body class="min-h-screen bg-(--color-paper) text-(--color-ink)">
+    <header class="flex items-center justify-between border-b border-(--color-line) px-6 py-4">
+      <h1 class="font-display text-lg">jtp.skulptur admin</h1>
+      <form method="POST" action="/api/admin/logout">
+        <button type="submit" class="text-sm text-(--color-ink-soft) hover:text-(--color-clay)">Sign out</button>
+      </form>
+    </header>
+
+    <main class="mx-auto max-w-4xl px-6 py-10">
+      <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <div class="border border-(--color-line) p-4">
+          <p class="text-2xl">{draftCount ?? '—'}</p>
+          <p class="text-sm text-(--color-ink-soft)">Unpublished artworks</p>
+        </div>
+        <div class="border border-(--color-line) p-4">
+          <p class="text-2xl">{unreadCount ?? '—'}</p>
+          <p class="text-sm text-(--color-ink-soft)">Unread messages</p>
+        </div>
+      </div>
+
+      <nav class="mt-10 grid grid-cols-2 gap-3 sm:grid-cols-3">
+        {sections.map((section) => (
+          <a href={section.href} class="border border-(--color-line) px-4 py-3 text-sm hover:border-(--color-clay) hover:text-(--color-clay)">
+            {section.label}
+          </a>
+        ))}
+      </nav>
+    </main>
+  </body>
+</html>

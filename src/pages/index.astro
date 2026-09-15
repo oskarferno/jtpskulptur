@@ -1,0 +1,50 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { supabase } from '../lib/supabase';
+import { publicMediaUrl } from '../lib/media';
+
+const { data: settings } = await supabase
+  .from('site_settings')
+  .select('seo_default_title, seo_default_description')
+  .single();
+
+const { data: artworks } = await supabase
+  .from('artworks')
+  .select('id, slug, title, year, primary_image_id, media:primary_image_id (storage_path, alt_text, width, height)')
+  .eq('published', true)
+  .order('display_order');
+
+const title = settings?.seo_default_title ?? 'jtp.skulptur — Jens Wollinger';
+const description = settings?.seo_default_description ?? undefined;
+---
+
+<Layout title={title} description={description}>
+  {
+    artworks && artworks.length > 0 ? (
+      <div class="mx-auto grid max-w-6xl grid-cols-1 gap-1 px-1 py-1 sm:grid-cols-2 sm:px-2 sm:py-2 lg:grid-cols-3">
+        {artworks.map((artwork) => (
+          <a href={`/portfolio/${artwork.slug}`} class="group relative block overflow-hidden bg-(--color-paper-raised)">
+            {artwork.media && (
+              <img
+                src={publicMediaUrl('artwork-images', artwork.media.storage_path)}
+                alt={artwork.media.alt_text ?? artwork.title}
+                width={artwork.media.width ?? undefined}
+                height={artwork.media.height ?? undefined}
+                loading="lazy"
+                class="aspect-square w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+              />
+            )}
+            <span class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent px-4 py-3 text-sm text-white opacity-0 transition-opacity group-hover:opacity-100">
+              {artwork.title}
+              {artwork.year && `, ${artwork.year}`}
+            </span>
+          </a>
+        ))}
+      </div>
+    ) : (
+      <p class="mx-auto max-w-6xl px-6 py-24 text-center text-(--color-ink-soft) sm:px-8">
+        Portfolio coming soon.
+      </p>
+    )
+  }
+</Layout>

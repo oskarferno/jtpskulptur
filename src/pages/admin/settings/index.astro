@@ -1,0 +1,15 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+
+const supabase = Astro.locals.supabase!;
+const { data: settings } = await supabase.from('site_settings').select('*').single();
+---
+
+<AdminLayout title="Site Settings">
+  <dl class="space-y-2 text-sm">
+    <div class="flex gap-2"><dt class="text-(--color-ink-soft)">Site title</dt><dd>{settings?.site_title}</dd></div>
+    <div class="flex gap-2"><dt class="text-(--color-ink-soft)">Contact email</dt><dd>{settings?.contact_email ?? '—'}</dd></div>
+    <div class="flex gap-2"><dt class="text-(--color-ink-soft)">Contact form</dt><dd>{settings?.contact_form_enabled ? 'enabled' : 'disabled'}</dd></div>
+  </dl>
+  <p class="mt-6 text-(--color-ink-soft)">Editing form lands with the rest of the CRUD build-out.</p>
+</AdminLayout>
