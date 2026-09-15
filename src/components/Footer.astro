@@ -13,8 +13,14 @@ const [{ data: socialLinks }, { data: settings }] = await Promise.all([
   <div class="mx-auto max-w-(--width-full) px-4 py-12 sm:px-8 sm:py-16">
     <div class="flex flex-col gap-8 sm:flex-row sm:items-end sm:justify-between">
       <div>
-        <p class="font-display text-lg tracking-[0.08em] uppercase">JTP Skulptur</p>
-        {settings?.tagline && <p class="caption mt-2">{settings.tagline}</p>}
+        <img
+          src="/jtp-skulptur-logo.png"
+          alt="JTP Skulptur"
+          width="2172"
+          height="724"
+          class="h-8 w-auto sm:h-10"
+        />
+        {settings?.tagline && <p class="caption mt-3">{settings.tagline}</p>}
       </div>
       <ul class="flex flex-wrap gap-x-6 gap-y-2 text-sm text-(--color-ink-soft)">
         {settings?.contact_email && (
