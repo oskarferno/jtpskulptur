@@ -25,9 +25,9 @@
   --color-clay: #7a4a2a;
 
   /* Content widths */
-  --width-content: 40rem;
-  --width-wide: 72rem;
-  --width-full: 96rem;
+  --measure-content: 40rem;
+  --measure-wide: 72rem;
+  --measure-full: 96rem;
 }
 
 html {

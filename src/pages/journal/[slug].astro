@@ -40,7 +40,7 @@ const ogImage = post.cover ? publicMediaUrl(post.cover.bucket, post.cover.storag
       />
     )}
 
-    <div class="mx-auto max-w-(--width-content) px-4 py-12 sm:px-8 sm:py-16">
+    <div class="mx-auto max-w-(--measure-content) px-4 py-12 sm:px-8 sm:py-16">
       {post.published_at && (
         <p class="caption">{new Date(post.published_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
       )}
@@ -53,7 +53,7 @@ const ogImage = post.cover ? publicMediaUrl(post.cover.bucket, post.cover.storag
     </div>
 
     {images.length > 0 && (
-      <div class="mx-auto max-w-(--width-full) space-y-4 px-4 pb-16 sm:px-8">
+      <div class="mx-auto max-w-(--measure-full) space-y-4 px-4 pb-16 sm:px-8">
         {images.map(({ media }) => media && (
           <figure>
             <img
@@ -68,7 +68,7 @@ const ogImage = post.cover ? publicMediaUrl(post.cover.bucket, post.cover.storag
       </div>
     )}
 
-    <div class="mx-auto max-w-(--width-content) px-4 pb-16 sm:px-8">
+    <div class="mx-auto max-w-(--measure-content) px-4 pb-16 sm:px-8">
       <a href="/journal" class="text-sm tracking-[0.04em] text-(--color-clay) hover:underline">&larr; Back to Journal</a>
     </div>
   </article>

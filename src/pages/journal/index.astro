@@ -13,12 +13,12 @@ const { data: posts } = await supabase
 ---
 
 <Layout title="Journal — JTP Skulptur">
-  <header class="mx-auto max-w-(--width-content) px-4 pt-14 sm:px-8 sm:pt-20">
+  <header class="mx-auto max-w-(--measure-content) px-4 pt-14 sm:px-8 sm:pt-20">
     <p class="caption">Journal</p>
     <h1 class="font-display mt-3 text-3xl sm:text-5xl">Journal</h1>
   </header>
 
-  <div class="mx-auto max-w-(--width-wide) px-4 py-10 sm:px-8 sm:py-14">
+  <div class="mx-auto max-w-(--measure-wide) px-4 py-10 sm:px-8 sm:py-14">
     {posts && posts.length > 0 ? (
       <div class="grid grid-cols-1 gap-x-8 gap-y-14 sm:grid-cols-2">
         {posts.map((post) => (

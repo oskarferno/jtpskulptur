@@ -24,13 +24,13 @@ const title = `Portfolio — ${settings?.seo_default_title ?? 'JTP Skulptur'}`;
 ---
 
 <Layout title={title} description={settings?.seo_default_description ?? undefined}>
-  <header class="mx-auto max-w-(--width-full) px-4 pt-14 pb-8 sm:px-8 sm:pt-20 sm:pb-12">
+  <header class="mx-auto max-w-(--measure-full) px-4 pt-14 pb-8 sm:px-8 sm:pt-20 sm:pb-12">
     <h1 class="font-display text-3xl sm:text-5xl">Portfolio</h1>
   </header>
 
   {
     artworks && artworks.length > 0 ? (
-      <div class="mx-auto grid max-w-(--width-full) grid-cols-1 gap-4 px-4 pb-24 sm:grid-cols-12 sm:gap-6 sm:px-8 sm:pb-32">
+      <div class="mx-auto grid max-w-(--measure-full) grid-cols-1 gap-4 px-4 pb-24 sm:grid-cols-12 sm:gap-6 sm:px-8 sm:pb-32">
         {artworks.map((artwork, i) => artwork.media && (
           <a
             href={`/portfolio/${artwork.slug}`}
@@ -54,7 +54,7 @@ const title = `Portfolio — ${settings?.seo_default_title ?? 'JTP Skulptur'}`;
         ))}
       </div>
     ) : (
-      <p class="mx-auto max-w-(--width-full) px-4 py-24 text-center text-(--color-ink-soft) sm:px-8">
+      <p class="mx-auto max-w-(--measure-full) px-4 py-24 text-center text-(--color-ink-soft) sm:px-8">
         Portfolio coming soon.
       </p>
     )

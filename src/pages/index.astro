@@ -69,7 +69,7 @@ const ogImage = hero?.media ? publicMediaUrl(hero.media.bucket, hero.media.stora
   )}
 
   {featuredRest.length > 0 && (
-    <section class="mx-auto max-w-(--width-full) px-4 py-20 sm:px-8 sm:py-28">
+    <section class="mx-auto max-w-(--measure-full) px-4 py-20 sm:px-8 sm:py-28">
       <p class="caption">Featured Work</p>
       <div class="mt-6 grid grid-cols-1 gap-4 sm:mt-8 sm:grid-cols-12 sm:gap-6">
         {featuredRest.map((artwork, i) => {
@@ -94,7 +94,7 @@ const ogImage = hero?.media ? publicMediaUrl(hero.media.bucket, hero.media.stora
 
   {(about?.full_bio || about?.short_bio) && (
     <section class="border-t border-(--color-line) px-4 py-20 sm:px-8 sm:py-28">
-      <div class="mx-auto max-w-(--width-content)">
+      <div class="mx-auto max-w-(--measure-content)">
         <p class="caption">The Artist</p>
         <p class="font-display mt-4 text-2xl leading-snug sm:text-3xl">
           {(about.full_bio ?? about.short_bio ?? '').split('\n')[0]}

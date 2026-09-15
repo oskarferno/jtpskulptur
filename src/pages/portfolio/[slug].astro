@@ -57,7 +57,7 @@ const ogImage = artwork.primary_media
       />
     )}
 
-    <div class="mx-auto max-w-(--width-content) px-4 py-12 sm:px-8 sm:py-16">
+    <div class="mx-auto max-w-(--measure-content) px-4 py-12 sm:px-8 sm:py-16">
       <h1 class="font-display text-3xl sm:text-4xl">{artwork.title}</h1>
       {(artwork.year || artwork.material || artwork.dimensions) && (
         <p class="mt-2 text-(--color-ink-soft)">
@@ -69,7 +69,7 @@ const ogImage = artwork.primary_media
     </div>
 
     {galleryImages.length > 0 && (
-      <div class="mx-auto max-w-(--width-full) space-y-4 px-4 pb-16 sm:px-8">
+      <div class="mx-auto max-w-(--measure-full) space-y-4 px-4 pb-16 sm:px-8">
         {galleryImages.map(({ media, caption }) => media && (
           <figure>
             <img
@@ -87,7 +87,7 @@ const ogImage = artwork.primary_media
     )}
 
     <nav aria-label="More work" class="border-t border-(--color-line)">
-      <div class="mx-auto grid max-w-(--width-full) grid-cols-2 divide-x divide-(--color-line) px-4 sm:px-8">
+      <div class="mx-auto grid max-w-(--measure-full) grid-cols-2 divide-x divide-(--color-line) px-4 sm:px-8">
         {prev && (
           <a href={`/portfolio/${prev.slug}`} class="group py-10 pr-4 hover:text-(--color-clay)">
             <p class="caption">&larr; Previous</p>
