@@ -53,16 +53,13 @@ const ogImage = hero?.media ? publicMediaUrl(hero.media.bucket, hero.media.stora
           alt={hero.media.alt_text ?? hero.title}
           width={hero.media.width ?? undefined}
           height={hero.media.height ?? undefined}
-          class="h-[78svh] w-full object-cover object-top sm:h-[88svh]"
+          class="aspect-[4/5] w-full object-cover object-[center_14%] sm:aspect-[5/4] sm:object-[center_16%] md:aspect-[3/2] lg:aspect-[16/9] lg:object-[center_28%]"
           fetchpriority="high"
         />
       </a>
-      <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent px-4 pt-24 pb-10 sm:px-8 sm:pb-14">
-        <p class="font-display text-4xl tracking-[0.02em] text-white sm:text-6xl lg:text-[var(--text-display-lg)]">
-          JTP Skulptur
-        </p>
+      <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/35 via-40% to-transparent px-4 pt-20 pb-8 sm:px-8 sm:pb-12">
         {about?.short_bio && (
-          <p class="mt-4 max-w-md text-sm text-white/85 sm:text-base">{about.short_bio}</p>
+          <p class="max-w-md text-sm text-white/90 sm:text-base">{about.short_bio}</p>
         )}
       </div>
     </section>
