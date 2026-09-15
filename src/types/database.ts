@@ -128,15 +128,20 @@ export interface Database {
       exhibitions: {
         Row: {
           id: string;
+          slug: string | null;
           title: string;
           venue: string | null;
           city: string | null;
           country: string | null;
           start_date: string | null;
           end_date: string | null;
+          intro: string | null;
           description: string | null;
           url: string | null;
           exhibition_type: string | null;
+          cover_media_id: string | null;
+          seo_title: string | null;
+          seo_description: string | null;
           published: boolean;
           display_order: number;
           created_at: string;
@@ -145,7 +150,15 @@ export interface Database {
           title: string;
         };
         Update: Partial<Database['public']['Tables']['exhibitions']['Row']>;
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: 'exhibitions_cover_media_id_fkey';
+            columns: ['cover_media_id'];
+            isOneToOne: false;
+            referencedRelation: 'media';
+            referencedColumns: ['id'];
+          },
+        ];
       };
       exhibition_images: {
         Row: {

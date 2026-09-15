@@ -6,15 +6,20 @@ export const prerender = false;
 type ExhibitionUpdate = Database['public']['Tables']['exhibitions']['Update'];
 
 const EDITABLE_FIELDS = [
+  'slug',
   'title',
   'venue',
   'city',
   'country',
   'start_date',
   'end_date',
+  'intro',
   'description',
   'url',
   'exhibition_type',
+  'cover_media_id',
+  'seo_title',
+  'seo_description',
   'published',
   'display_order',
 ] as const satisfies readonly (keyof ExhibitionUpdate)[];
@@ -47,6 +52,9 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
 
   if (typeof update.title === 'string' && update.title.trim().length === 0) {
     return jsonError('Title cannot be empty.');
+  }
+  if (typeof update.slug === 'string' && update.slug && !/^[a-z0-9]+(-[a-z0-9]+)*$/.test(update.slug)) {
+    return jsonError('Slug must be lowercase letters, numbers, and hyphens only.');
   }
 
   const { data, error } = await supabase.from('exhibitions').update(update).eq('id', id).select().single();

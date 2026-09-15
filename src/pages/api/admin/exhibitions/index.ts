@@ -12,7 +12,7 @@ function jsonError(message: string, status = 400) {
 export const POST: APIRoute = async ({ request, locals }) => {
   const supabase = locals.supabase!;
 
-  let body: { title?: string };
+  let body: { title?: string; slug?: string };
   try {
     body = await request.json();
   } catch {
@@ -20,9 +20,14 @@ export const POST: APIRoute = async ({ request, locals }) => {
   }
 
   const title = (body.title ?? '').trim();
-  if (!title) return jsonError('Title is required.');
+  const slug = (body.slug ?? '').trim();
 
-  const { data, error } = await supabase.from('exhibitions').insert({ title, published: false }).select().single();
+  if (!title) return jsonError('Title is required.');
+  if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(slug)) {
+    return jsonError('Slug must be lowercase letters, numbers, and hyphens only.');
+  }
+
+  const { data, error } = await supabase.from('exhibitions').insert({ title, slug, published: false }).select().single();
   if (error) return jsonError(error.message, 500);
 
   return new Response(JSON.stringify({ exhibition: data }), {

@@ -1,5 +1,6 @@
 ---
 import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { publicMediaUrl } from '../../../lib/media';
 
 const supabase = Astro.locals.supabase!;
 const { id } = Astro.params;
@@ -10,7 +11,11 @@ if (!id) {
 
 const { data: exhibition } = await supabase
   .from('exhibitions')
-  .select('id, title, venue, city, country, start_date, end_date, description, url, exhibition_type, published')
+  .select(
+    `id, slug, title, venue, city, country, start_date, end_date, intro, description, url, exhibition_type,
+     published, seo_title, seo_description,
+     cover_media:cover_media_id (storage_path, bucket, alt_text)`
+  )
   .eq('id', id)
   .single();
 
@@ -21,6 +26,17 @@ if (!exhibition) {
 
 <AdminLayout title={exhibition.title}>
   <form id="exhibition-form" class="max-w-xl space-y-4" data-exhibition-id={exhibition.id}>
+    {exhibition.cover_media && (
+      <img
+        src={publicMediaUrl(exhibition.cover_media.bucket, exhibition.cover_media.storage_path)}
+        alt=""
+        class="aspect-square w-40 border border-(--color-line) object-cover"
+      />
+    )}
+    <p class="text-xs text-(--color-ink-soft)">
+      Cover and gallery images are attached via the media library (see <a href="/admin/media" class="underline">Media</a>) and the exhibition_images table.
+    </p>
+
     <label class="flex items-center gap-2 text-sm">
       <input type="checkbox" name="published" checked={exhibition.published} />
       Published
@@ -30,6 +46,13 @@ if (!exhibition) {
       <label for="title" class="block text-sm text-(--color-ink-soft)">Title</label>
       <input id="title" name="title" type="text" required value={exhibition.title}
         class="mt-1 w-full border border-(--color-line) bg-transparent px-3 py-2 focus:border-(--color-clay) focus:outline-none" />
+    </div>
+
+    <div>
+      <label for="slug" class="block text-sm text-(--color-ink-soft)">Slug</label>
+      <input id="slug" name="slug" type="text" value={exhibition.slug ?? ''} pattern="[a-z0-9]+(-[a-z0-9]+)*"
+        class="mt-1 w-full border border-(--color-line) bg-transparent px-3 py-2 focus:border-(--color-clay) focus:outline-none" />
+      <p class="mt-1 text-xs text-(--color-ink-soft)">Public URL: /exhibitions/{exhibition.slug ?? '(set a slug to enable the detail page)'}</p>
     </div>
 
     <div>
@@ -78,10 +101,30 @@ if (!exhibition) {
     </div>
 
     <div>
+      <label for="intro" class="block text-sm text-(--color-ink-soft)">Short introduction</label>
+      <textarea id="intro" name="intro" rows="2"
+        class="mt-1 w-full border border-(--color-line) bg-transparent px-3 py-2 focus:border-(--color-clay) focus:outline-none">{exhibition.intro ?? ''}</textarea>
+    </div>
+
+    <div>
       <label for="description" class="block text-sm text-(--color-ink-soft)">Description</label>
       <textarea id="description" name="description" rows="5"
         class="mt-1 w-full border border-(--color-line) bg-transparent px-3 py-2 focus:border-(--color-clay) focus:outline-none">{exhibition.description ?? ''}</textarea>
     </div>
+
+    <fieldset class="border border-(--color-line) p-4">
+      <legend class="px-1 text-sm text-(--color-ink-soft)">SEO (optional — falls back to defaults if empty)</legend>
+      <div class="mt-2">
+        <label for="seo_title" class="block text-sm text-(--color-ink-soft)">SEO title</label>
+        <input id="seo_title" name="seo_title" type="text" value={exhibition.seo_title ?? ''}
+          class="mt-1 w-full border border-(--color-line) bg-transparent px-3 py-2 focus:border-(--color-clay) focus:outline-none" />
+      </div>
+      <div class="mt-3">
+        <label for="seo_description" class="block text-sm text-(--color-ink-soft)">SEO description</label>
+        <textarea id="seo_description" name="seo_description" rows="2"
+          class="mt-1 w-full border border-(--color-line) bg-transparent px-3 py-2 focus:border-(--color-clay) focus:outline-none">{exhibition.seo_description ?? ''}</textarea>
+      </div>
+    </fieldset>
 
     <div class="flex items-center gap-4">
       <button type="submit"
@@ -105,6 +148,7 @@ if (!exhibition) {
 
       const payload = {
         title: formData.get('title'),
+        slug: formData.get('slug') || null,
         venue: formData.get('venue') || null,
         city: formData.get('city') || null,
         country: formData.get('country') || null,
@@ -112,7 +156,10 @@ if (!exhibition) {
         end_date: formData.get('end_date') || null,
         exhibition_type: formData.get('exhibition_type') || null,
         url: formData.get('url') || null,
+        intro: formData.get('intro') || null,
         description: formData.get('description') || null,
+        seo_title: formData.get('seo_title') || null,
+        seo_description: formData.get('seo_description') || null,
         published: formData.get('published') === 'on',
       };
 

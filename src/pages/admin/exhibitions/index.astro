@@ -4,7 +4,7 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
 const supabase = Astro.locals.supabase!;
 const { data: exhibitions } = await supabase
   .from('exhibitions')
-  .select('id, title, venue, start_date, published')
+  .select('id, title, venue, start_date, published, exhibition_type')
   .order('start_date', { ascending: false });
 ---
 
@@ -23,7 +23,10 @@ const { data: exhibitions } = await supabase
         {exhibitions.map((e) => (
           <li>
             <a href={`/admin/exhibitions/${e.id}`} class="flex items-center justify-between px-4 py-3 hover:bg-(--color-paper-raised)">
-              <span>{e.title}{e.venue ? ` — ${e.venue}` : ''}</span>
+              <span>
+                {e.title}{e.venue ? ` — ${e.venue}` : ''}
+                {e.exhibition_type && <span class="text-(--color-ink-faint)"> ({e.exhibition_type})</span>}
+              </span>
               <span class="text-sm text-(--color-ink-soft)">{e.published ? 'published' : 'draft'}</span>
             </a>
           </li>

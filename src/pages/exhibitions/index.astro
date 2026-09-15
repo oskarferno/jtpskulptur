@@ -1,12 +1,16 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import { getSupabaseClient } from '../../lib/supabase';
+import { publicMediaUrl } from '../../lib/media';
 
 const supabase = getSupabaseClient();
 
 const { data: exhibitions } = await supabase
   .from('exhibitions')
-  .select('id, title, venue, city, country, start_date, end_date, description, url')
+  .select(
+    `id, slug, title, venue, city, country, start_date, end_date, intro, exhibition_type,
+     cover:cover_media_id (storage_path, bucket, alt_text, width, height)`
+  )
   .eq('published', true)
   .order('start_date', { ascending: false });
 
@@ -22,46 +26,87 @@ function formatRange(start?: string | null, end?: string | null) {
 }
 ---
 
-<Layout title="Exhibitions — JTP Skulptur">
-  <header class="mx-auto max-w-(--measure-content) px-4 pt-14 sm:px-8 sm:pt-20">
+<Layout title="Exhibitions — JTP Skulptur" description="Current and past exhibitions of sculpture by Jens Wollinger, JTP Skulptur.">
+  <header class="mx-auto max-w-(--measure-wide) px-4 pt-14 sm:px-8 sm:pt-20">
     <p class="caption">Exhibitions</p>
     <h1 class="font-display mt-3 text-3xl sm:text-5xl">Exhibitions</h1>
   </header>
 
-  <div class="mx-auto max-w-(--measure-content) px-4 py-10 sm:px-8 sm:py-14">
+  <div class="mx-auto max-w-(--measure-wide) px-4 py-10 sm:px-8 sm:py-14">
     {exhibitions && exhibitions.length > 0 ? (
       <>
         {upcoming.length > 0 && (
           <section>
             <p class="caption">Upcoming</p>
-            <ul class="mt-4 divide-y divide-(--color-line)">
-              {upcoming.map((e) => (
-                <li class="py-6">
-                  <p class="font-display text-xl">{e.title}</p>
-                  <p class="mt-1 text-sm text-(--color-ink-soft)">
-                    {[e.venue, e.city, e.country].filter(Boolean).join(', ')}
-                  </p>
-                  <p class="text-sm text-(--color-ink-faint)">{formatRange(e.start_date, e.end_date)}</p>
-                  {e.description && <p class="mt-2 text-sm leading-relaxed">{e.description}</p>}
-                  {e.url && <a href={e.url} target="_blank" rel="noopener noreferrer" class="mt-2 inline-block text-sm text-(--color-clay) hover:underline">Details &rarr;</a>}
-                </li>
-              ))}
+            <ul class="mt-6 divide-y divide-(--color-line) border-t border-(--color-line)">
+              {upcoming.map((e) => {
+                const Tag = e.slug ? 'a' : 'div';
+                return (
+                  <li>
+                    <Tag href={e.slug ? `/exhibitions/${e.slug}` : undefined}
+                      class:list={['group flex flex-col gap-5 py-8 sm:flex-row sm:items-center sm:gap-10']}>
+                      {e.cover ? (
+                        <img
+                          src={publicMediaUrl(e.cover.bucket, e.cover.storage_path)}
+                          alt={e.cover.alt_text ?? e.title}
+                          width={e.cover.width ?? undefined}
+                          height={e.cover.height ?? undefined}
+                          loading="lazy"
+                          class="aspect-[4/3] w-full flex-shrink-0 bg-(--color-paper-raised) object-cover transition-transform duration-700 sm:w-64 group-hover:scale-[1.02]"
+                        />
+                      ) : (
+                        <div class="aspect-[4/3] w-full flex-shrink-0 bg-(--color-paper-raised) sm:w-64" />
+                      )}
+                      <div>
+                        {e.exhibition_type && <p class="caption">{e.exhibition_type}</p>}
+                        <p class="font-display mt-2 text-2xl group-hover:text-(--color-clay)">{e.title}</p>
+                        <p class="mt-2 text-sm text-(--color-ink-soft)">
+                          {[e.venue, e.city, e.country].filter(Boolean).join(', ')}
+                        </p>
+                        <p class="text-sm text-(--color-ink-faint)">{formatRange(e.start_date, e.end_date)}</p>
+                        {e.intro && <p class="mt-3 max-w-lg text-sm leading-relaxed text-(--color-ink-soft)">{e.intro}</p>}
+                      </div>
+                    </Tag>
+                  </li>
+                );
+              })}
             </ul>
           </section>
         )}
         {past.length > 0 && (
-          <section class="mt-14">
+          <section class="mt-16">
             <p class="caption">Past</p>
-            <ul class="mt-4 divide-y divide-(--color-line)">
-              {past.map((e) => (
-                <li class="py-6">
-                  <p class="font-display text-xl">{e.title}</p>
-                  <p class="mt-1 text-sm text-(--color-ink-soft)">
-                    {[e.venue, e.city, e.country].filter(Boolean).join(', ')}
-                  </p>
-                  <p class="text-sm text-(--color-ink-faint)">{formatRange(e.start_date, e.end_date)}</p>
-                </li>
-              ))}
+            <ul class="mt-6 divide-y divide-(--color-line) border-t border-(--color-line)">
+              {past.map((e) => {
+                const Tag = e.slug ? 'a' : 'div';
+                return (
+                  <li>
+                    <Tag href={e.slug ? `/exhibitions/${e.slug}` : undefined}
+                      class:list={['group flex flex-col gap-5 py-8 sm:flex-row sm:items-center sm:gap-10']}>
+                      {e.cover ? (
+                        <img
+                          src={publicMediaUrl(e.cover.bucket, e.cover.storage_path)}
+                          alt={e.cover.alt_text ?? e.title}
+                          width={e.cover.width ?? undefined}
+                          height={e.cover.height ?? undefined}
+                          loading="lazy"
+                          class="aspect-[4/3] w-full flex-shrink-0 bg-(--color-paper-raised) object-cover transition-transform duration-700 sm:w-64 group-hover:scale-[1.02]"
+                        />
+                      ) : (
+                        <div class="aspect-[4/3] w-full flex-shrink-0 bg-(--color-paper-raised) sm:w-64" />
+                      )}
+                      <div>
+                        {e.exhibition_type && <p class="caption">{e.exhibition_type}</p>}
+                        <p class="font-display mt-2 text-2xl group-hover:text-(--color-clay)">{e.title}</p>
+                        <p class="mt-2 text-sm text-(--color-ink-soft)">
+                          {[e.venue, e.city, e.country].filter(Boolean).join(', ')}
+                        </p>
+                        <p class="text-sm text-(--color-ink-faint)">{formatRange(e.start_date, e.end_date)}</p>
+                      </div>
+                    </Tag>
+                  </li>
+                );
+              })}
             </ul>
           </section>
         )}

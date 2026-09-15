@@ -13,7 +13,7 @@ if (!slug) {
 const { data: post } = await supabase
   .from('posts')
   .select(
-    `title, body, published_at, seo_title, seo_description,
+    `title, excerpt, body, published_at, seo_title, seo_description,
      cover:cover_media_id (storage_path, bucket, alt_text),
      post_images (display_order, media:media_id (storage_path, bucket, alt_text, caption, width, height))`
   )
@@ -30,7 +30,7 @@ const title = post.seo_title ?? `${post.title} — JTP Skulptur`;
 const ogImage = post.cover ? publicMediaUrl(post.cover.bucket, post.cover.storage_path) : undefined;
 ---
 
-<Layout title={title} description={post.seo_description ?? undefined} ogImage={ogImage}>
+<Layout title={title} description={post.seo_description ?? post.excerpt ?? undefined} ogImage={ogImage}>
   <article>
     {post.cover && (
       <img
@@ -60,7 +60,7 @@ const ogImage = post.cover ? publicMediaUrl(post.cover.bucket, post.cover.storag
               src={publicMediaUrl(media.bucket, media.storage_path)}
               alt={media.alt_text ?? post.title}
               loading="lazy"
-              class="w-full bg-(--color-paper-raised) object-contain"
+              class="mx-auto max-h-[85vh] w-full bg-(--color-paper-raised) object-contain"
             />
             {media.caption && <figcaption class="caption mt-2">{media.caption}</figcaption>}
           </figure>

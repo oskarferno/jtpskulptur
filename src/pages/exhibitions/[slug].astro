@@ -1,0 +1,102 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { getSupabaseClient } from '../../lib/supabase';
+import { publicMediaUrl } from '../../lib/media';
+
+const supabase = getSupabaseClient();
+const { slug } = Astro.params;
+
+if (!slug) {
+  return Astro.redirect('/404');
+}
+
+const { data: exhibition } = await supabase
+  .from('exhibitions')
+  .select(
+    `title, venue, city, country, start_date, end_date, intro, description, exhibition_type, url,
+     seo_title, seo_description,
+     cover:cover_media_id (storage_path, bucket, alt_text, width, height),
+     exhibition_images (display_order, media:media_id (storage_path, bucket, alt_text, caption, width, height))`
+  )
+  .eq('slug', slug)
+  .eq('published', true)
+  .single();
+
+if (!exhibition) {
+  return Astro.redirect('/404');
+}
+
+const images = (exhibition.exhibition_images ?? []).sort((a, b) => a.display_order - b.display_order);
+const title = exhibition.seo_title ?? `${exhibition.title} — JTP Skulptur`;
+const ogImage = exhibition.cover ? publicMediaUrl(exhibition.cover.bucket, exhibition.cover.storage_path) : undefined;
+
+function formatRange(start?: string | null, end?: string | null) {
+  const fmt = (d: string) => new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+  if (start && end && start !== end) return `${fmt(start)} — ${fmt(end)}`;
+  if (start) return fmt(start);
+  return '';
+}
+
+const location = [exhibition.venue, exhibition.city, exhibition.country].filter(Boolean).join(', ');
+const dateRange = formatRange(exhibition.start_date, exhibition.end_date);
+---
+
+<Layout title={title} description={exhibition.seo_description ?? exhibition.intro ?? undefined} ogImage={ogImage}>
+  <article>
+    {exhibition.cover && (
+      <img
+        src={publicMediaUrl(exhibition.cover.bucket, exhibition.cover.storage_path)}
+        alt={exhibition.cover.alt_text ?? exhibition.title}
+        width={exhibition.cover.width ?? undefined}
+        height={exhibition.cover.height ?? undefined}
+        fetchpriority="high"
+        class="h-[50svh] w-full object-cover object-top sm:h-[65svh]"
+      />
+    )}
+
+    <div class="mx-auto max-w-(--measure-content) px-4 py-12 sm:px-8 sm:py-16">
+      {exhibition.exhibition_type && <p class="caption">{exhibition.exhibition_type}</p>}
+      <h1 class="font-display mt-3 text-3xl sm:text-4xl">{exhibition.title}</h1>
+      {(dateRange || location) && (
+        <p class="mt-3 text-sm text-(--color-ink-soft)">
+          {dateRange}
+          {dateRange && location && ' · '}
+          {location}
+        </p>
+      )}
+      {exhibition.intro && <p class="font-display mt-6 text-xl leading-snug text-(--color-ink-soft)">{exhibition.intro}</p>}
+      {exhibition.description && (
+        <div class="mt-8 space-y-6 leading-relaxed">
+          {exhibition.description.split('\n').filter(Boolean).map((p) => <p>{p}</p>)}
+        </div>
+      )}
+      {exhibition.url && (
+        <a href={exhibition.url} target="_blank" rel="noopener noreferrer" class="mt-8 inline-block text-sm tracking-[0.04em] text-(--color-clay) hover:underline">
+          Visit exhibition site &rarr;
+        </a>
+      )}
+    </div>
+
+    {images.length > 0 && (
+      <div class="mx-auto max-w-(--measure-full) space-y-4 px-4 pb-16 sm:px-8">
+        {images.map(({ media }) => media && (
+          <figure>
+            <img
+              src={publicMediaUrl(media.bucket, media.storage_path)}
+              alt={media.alt_text ?? exhibition.title}
+              width={media.width ?? undefined}
+              height={media.height ?? undefined}
+              loading="lazy"
+              class="mx-auto max-h-[85vh] w-full bg-(--color-paper-raised) object-contain"
+            />
+            {media.caption && <figcaption class="caption mt-2">{media.caption}</figcaption>}
+          </figure>
+        ))}
+      </div>
+    )}
+
+    <div class="mx-auto max-w-(--measure-content) px-4 pb-16 sm:px-8">
+      <a href="/exhibitions" class="text-sm tracking-[0.04em] text-(--color-clay) hover:underline">&larr; Back to Exhibitions</a>
+    </div>
+  </article>
+</Layout>
