@@ -97,6 +97,27 @@ input:focus-visible, textarea:focus-visible, select:focus-visible {
   color: var(--color-ink-faint);
 }
 
+/* Single source of truth for the JTP wordmark's rendered size — the header
+   is the reference, and the footer (and anywhere else the logo appears)
+   consumes this same rule so the two can't drift apart. Breakpoints match
+   Tailwind's default sm/lg (40rem/64rem). */
+.jtp-logo {
+  height: 1rem;
+  width: auto;
+}
+
+@media (min-width: 40rem) {
+  .jtp-logo {
+    height: 1.25rem;
+  }
+}
+
+@media (min-width: 64rem) {
+  .jtp-logo {
+    height: 1.5rem;
+  }
+}
+
 /* Slow, gentle reveal for images entering the viewport — degrades to
    plain opacity 1 if JS never runs, and no-ops under reduced motion. */
 .reveal {
