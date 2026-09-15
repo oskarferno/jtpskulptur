@@ -1,0 +1,67 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { getSupabaseClient } from '../../lib/supabase';
+import { publicMediaUrl } from '../../lib/media';
+
+const supabase = getSupabaseClient();
+
+const { data: settings } = await supabase
+  .from('site_settings')
+  .select('seo_default_title, seo_default_description')
+  .single();
+
+const { data: artworks } = await supabase
+  .from('artworks')
+  .select('id, slug, title, year, material, media:primary_image_id (storage_path, bucket, alt_text, width, height)')
+  .eq('published', true)
+  .order('display_order');
+
+// A repeating 5-step rhythm of column spans, breaking up the grid so it
+// reads as a curated sequence rather than a uniform product grid.
+const spanCycle = ['sm:col-span-7', 'sm:col-span-5', 'sm:col-span-4', 'sm:col-span-4', 'sm:col-span-4'];
+
+const title = `Portfolio — ${settings?.seo_default_title ?? 'JTP Skulptur'}`;
+---
+
+<Layout title={title} description={settings?.seo_default_description ?? undefined}>
+  <header class="mx-auto max-w-(--width-full) px-4 pt-14 pb-8 sm:px-8 sm:pt-20 sm:pb-12">
+    <h1 class="font-display text-3xl sm:text-5xl">Portfolio</h1>
+  </header>
+
+  {
+    artworks && artworks.length > 0 ? (
+      <div class="mx-auto grid max-w-(--width-full) grid-cols-1 gap-4 px-4 pb-24 sm:grid-cols-12 sm:gap-6 sm:px-8 sm:pb-32">
+        {artworks.map((artwork, i) => artwork.media && (
+          <a
+            href={`/portfolio/${artwork.slug}`}
+            class:list={['group reveal block', spanCycle[i % spanCycle.length]]}
+          >
+            <img
+              src={publicMediaUrl(artwork.media.bucket, artwork.media.storage_path)}
+              alt={artwork.media.alt_text ?? artwork.title}
+              width={artwork.media.width ?? undefined}
+              height={artwork.media.height ?? undefined}
+              loading={i < 2 ? 'eager' : 'lazy'}
+              class="aspect-[4/5] w-full bg-(--color-paper-raised) object-cover object-top transition-transform duration-700 group-hover:scale-[1.015]"
+            />
+            <p class="mt-3 flex items-baseline justify-between text-sm">
+              <span>{artwork.title}</span>
+              <span class="text-(--color-ink-faint)">
+                {[artwork.year, artwork.material].filter(Boolean).join(' · ')}
+              </span>
+            </p>
+          </a>
+        ))}
+      </div>
+    ) : (
+      <p class="mx-auto max-w-(--width-full) px-4 py-24 text-center text-(--color-ink-soft) sm:px-8">
+        Portfolio coming soon.
+      </p>
+    )
+  }
+
+  <script>
+    import { initReveal } from '../../lib/reveal';
+    initReveal();
+  </script>
+</Layout>

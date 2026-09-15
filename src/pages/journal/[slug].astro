@@ -1,0 +1,75 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { getSupabaseClient } from '../../lib/supabase';
+import { publicMediaUrl } from '../../lib/media';
+
+const supabase = getSupabaseClient();
+const { slug } = Astro.params;
+
+if (!slug) {
+  return Astro.redirect('/404');
+}
+
+const { data: post } = await supabase
+  .from('posts')
+  .select(
+    `title, body, published_at, seo_title, seo_description,
+     cover:cover_media_id (storage_path, bucket, alt_text),
+     post_images (display_order, media:media_id (storage_path, bucket, alt_text, caption, width, height))`
+  )
+  .eq('slug', slug)
+  .eq('published', true)
+  .single();
+
+if (!post) {
+  return Astro.redirect('/404');
+}
+
+const images = (post.post_images ?? []).sort((a, b) => a.display_order - b.display_order);
+const title = post.seo_title ?? `${post.title} — JTP Skulptur`;
+const ogImage = post.cover ? publicMediaUrl(post.cover.bucket, post.cover.storage_path) : undefined;
+---
+
+<Layout title={title} description={post.seo_description ?? undefined} ogImage={ogImage}>
+  <article>
+    {post.cover && (
+      <img
+        src={publicMediaUrl(post.cover.bucket, post.cover.storage_path)}
+        alt={post.cover.alt_text ?? post.title}
+        class="h-[50svh] w-full object-cover object-top sm:h-[65svh]"
+      />
+    )}
+
+    <div class="mx-auto max-w-(--width-content) px-4 py-12 sm:px-8 sm:py-16">
+      {post.published_at && (
+        <p class="caption">{new Date(post.published_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+      )}
+      <h1 class="font-display mt-3 text-3xl sm:text-4xl">{post.title}</h1>
+      {post.body && (
+        <div class="mt-8 space-y-6 leading-relaxed">
+          {post.body.split('\n').filter(Boolean).map((p) => <p>{p}</p>)}
+        </div>
+      )}
+    </div>
+
+    {images.length > 0 && (
+      <div class="mx-auto max-w-(--width-full) space-y-4 px-4 pb-16 sm:px-8">
+        {images.map(({ media }) => media && (
+          <figure>
+            <img
+              src={publicMediaUrl(media.bucket, media.storage_path)}
+              alt={media.alt_text ?? post.title}
+              loading="lazy"
+              class="w-full bg-(--color-paper-raised) object-contain"
+            />
+            {media.caption && <figcaption class="caption mt-2">{media.caption}</figcaption>}
+          </figure>
+        ))}
+      </div>
+    )}
+
+    <div class="mx-auto max-w-(--width-content) px-4 pb-16 sm:px-8">
+      <a href="/journal" class="text-sm tracking-[0.04em] text-(--color-clay) hover:underline">&larr; Back to Journal</a>
+    </div>
+  </article>
+</Layout>

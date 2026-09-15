@@ -4,6 +4,7 @@ import { getSupabaseClient } from '../lib/supabase';
 import { publicMediaUrl } from '../lib/media';
 
 const supabase = getSupabaseClient();
+
 const { data: about } = await supabase
   .from('about_content')
   .select(
@@ -18,69 +19,93 @@ const education = (about?.education ?? []) as ListEntry[];
 const awards = (about?.awards ?? []) as ListEntry[];
 const collections = (about?.collections ?? []) as ListEntry[];
 const press = (about?.press ?? []) as ListEntry[];
+const bioParagraphs = (about?.full_bio ?? '').split('\n').filter(Boolean);
 ---
 
-<Layout title={`About — ${about?.artist_name ?? 'jtp.skulptur'}`} description={about?.short_bio ?? undefined}>
-  <article class="mx-auto max-w-3xl px-6 py-12 sm:px-8">
-    <h1 class="font-display text-3xl">About</h1>
+<Layout title={`About — ${about?.artist_name ?? 'JTP Skulptur'}`} description={about?.short_bio ?? undefined}>
+  <header class="mx-auto max-w-(--width-content) px-4 pt-14 sm:px-8 sm:pt-20">
+    <p class="caption">About</p>
+    <h1 class="font-display mt-3 text-3xl sm:text-5xl">{about?.artist_name ?? 'JTP Skulptur'}</h1>
+  </header>
 
+  <div class="mx-auto max-w-(--width-content) px-4 py-10 sm:px-8 sm:py-14">
     {about?.portrait && (
       <img
         src={publicMediaUrl(about.portrait.bucket, about.portrait.storage_path)}
         alt={about.portrait.alt_text ?? about?.artist_name ?? 'Portrait'}
-        class="mt-8 aspect-square w-48 rounded-full object-cover"
+        class="mb-10 aspect-[4/5] w-full max-w-sm object-cover object-top"
       />
     )}
 
-    {about?.full_bio && <p class="mt-8 max-w-prose leading-relaxed whitespace-pre-line">{about.full_bio}</p>}
+    {bioParagraphs.map((p) => <p class="mt-6 leading-relaxed first:mt-0">{p}</p>)}
 
     {about?.artist_statement && (
-      <blockquote class="mt-8 max-w-prose border-l-2 border-(--color-clay) pl-4 italic text-(--color-ink-soft)">
+      <blockquote class="font-display mt-12 border-l-2 border-(--color-clay) pl-6 text-xl leading-snug text-(--color-ink-soft) sm:text-2xl">
         {about.artist_statement}
       </blockquote>
     )}
 
     {education.length > 0 && (
-      <section class="mt-10">
-        <h2 class="font-display text-xl">Education</h2>
-        <ul class="mt-3 space-y-1 text-sm">
-          {education.map((item) => <li>{[item.year, item.label ?? item.description].filter(Boolean).join(' — ')}</li>)}
+      <section class="mt-16">
+        <p class="caption">Education</p>
+        <ul class="mt-4 space-y-2">
+          {education.map((item) => (
+            <li class="flex gap-4 text-sm">
+              {item.year && <span class="w-14 flex-shrink-0 text-(--color-ink-faint)">{item.year}</span>}
+              <span>{item.label ?? item.description}</span>
+            </li>
+          ))}
         </ul>
       </section>
     )}
 
     {awards.length > 0 && (
-      <section class="mt-10">
-        <h2 class="font-display text-xl">Awards</h2>
-        <ul class="mt-3 space-y-1 text-sm">
-          {awards.map((item) => <li>{[item.year, item.label ?? item.description].filter(Boolean).join(' — ')}</li>)}
+      <section class="mt-12">
+        <p class="caption">Awards</p>
+        <ul class="mt-4 space-y-2">
+          {awards.map((item) => (
+            <li class="flex gap-4 text-sm">
+              {item.year && <span class="w-14 flex-shrink-0 text-(--color-ink-faint)">{item.year}</span>}
+              <span>{item.label ?? item.description}</span>
+            </li>
+          ))}
         </ul>
       </section>
     )}
 
     {collections.length > 0 && (
-      <section class="mt-10">
-        <h2 class="font-display text-xl">Collections</h2>
-        <ul class="mt-3 space-y-1 text-sm">
-          {collections.map((item) => <li>{[item.year, item.label ?? item.description].filter(Boolean).join(' — ')}</li>)}
+      <section class="mt-12">
+        <p class="caption">Collections</p>
+        <ul class="mt-4 space-y-2">
+          {collections.map((item) => (
+            <li class="flex gap-4 text-sm">
+              {item.year && <span class="w-14 flex-shrink-0 text-(--color-ink-faint)">{item.year}</span>}
+              <span>{item.label ?? item.description}</span>
+            </li>
+          ))}
         </ul>
       </section>
     )}
 
     {press.length > 0 && (
-      <section class="mt-10">
-        <h2 class="font-display text-xl">Press</h2>
-        <ul class="mt-3 space-y-1 text-sm">
-          {press.map((item) => <li>{[item.year, item.label ?? item.description].filter(Boolean).join(' — ')}</li>)}
+      <section class="mt-12">
+        <p class="caption">Press</p>
+        <ul class="mt-4 space-y-2">
+          {press.map((item) => (
+            <li class="flex gap-4 text-sm">
+              {item.year && <span class="w-14 flex-shrink-0 text-(--color-ink-faint)">{item.year}</span>}
+              <span>{item.label ?? item.description}</span>
+            </li>
+          ))}
         </ul>
       </section>
     )}
 
     {about?.cv && (
-      <p class="mt-10">
+      <p class="mt-16">
         <a
           href={publicMediaUrl(about.cv.bucket, about.cv.storage_path)}
-          class="text-sm underline hover:text-(--color-clay)"
+          class="text-sm tracking-[0.04em] text-(--color-clay) uppercase hover:underline"
           target="_blank"
           rel="noopener noreferrer"
         >
@@ -88,5 +113,5 @@ const press = (about?.press ?? []) as ListEntry[];
         </a>
       </p>
     )}
-  </article>
+  </div>
 </Layout>

@@ -7,15 +7,19 @@ const BASE = 'https://www.jtpskulptur.com';
 
 export const GET: APIRoute = async () => {
   const supabase = getSupabaseClient();
-  const [{ data: artworks }, { data: posts }] = await Promise.all([
+  const [{ data: artworks }, { data: posts }, { count: exhibitionCount }] = await Promise.all([
     supabase.from('artworks').select('slug, updated_at').eq('published', true),
     supabase.from('posts').select('slug, updated_at').eq('published', true),
+    supabase.from('exhibitions').select('id', { count: 'exact', head: true }).eq('published', true),
   ]);
 
   const staticUrls = [
     { loc: `${BASE}/`, lastmod: undefined },
+    { loc: `${BASE}/portfolio`, lastmod: undefined },
     { loc: `${BASE}/about`, lastmod: undefined },
     { loc: `${BASE}/contact`, lastmod: undefined },
+    ...(exhibitionCount ? [{ loc: `${BASE}/exhibitions`, lastmod: undefined }] : []),
+    ...((posts?.length ?? 0) > 0 ? [{ loc: `${BASE}/journal`, lastmod: undefined }] : []),
   ];
 
   const artworkUrls = (artworks ?? []).map((a) => ({

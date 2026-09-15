@@ -1,0 +1,73 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { getSupabaseClient } from '../../lib/supabase';
+
+const supabase = getSupabaseClient();
+
+const { data: exhibitions } = await supabase
+  .from('exhibitions')
+  .select('id, title, venue, city, country, start_date, end_date, description, url')
+  .eq('published', true)
+  .order('start_date', { ascending: false });
+
+const today = new Date().toISOString().slice(0, 10);
+const upcoming = (exhibitions ?? []).filter((e) => !e.end_date || e.end_date >= today);
+const past = (exhibitions ?? []).filter((e) => e.end_date && e.end_date < today);
+
+function formatRange(start?: string | null, end?: string | null) {
+  const fmt = (d: string) => new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  if (start && end && start !== end) return `${fmt(start)} — ${fmt(end)}`;
+  if (start) return fmt(start);
+  return '';
+}
+---
+
+<Layout title="Exhibitions — JTP Skulptur">
+  <header class="mx-auto max-w-(--width-content) px-4 pt-14 sm:px-8 sm:pt-20">
+    <p class="caption">Exhibitions</p>
+    <h1 class="font-display mt-3 text-3xl sm:text-5xl">Exhibitions</h1>
+  </header>
+
+  <div class="mx-auto max-w-(--width-content) px-4 py-10 sm:px-8 sm:py-14">
+    {exhibitions && exhibitions.length > 0 ? (
+      <>
+        {upcoming.length > 0 && (
+          <section>
+            <p class="caption">Upcoming</p>
+            <ul class="mt-4 divide-y divide-(--color-line)">
+              {upcoming.map((e) => (
+                <li class="py-6">
+                  <p class="font-display text-xl">{e.title}</p>
+                  <p class="mt-1 text-sm text-(--color-ink-soft)">
+                    {[e.venue, e.city, e.country].filter(Boolean).join(', ')}
+                  </p>
+                  <p class="text-sm text-(--color-ink-faint)">{formatRange(e.start_date, e.end_date)}</p>
+                  {e.description && <p class="mt-2 text-sm leading-relaxed">{e.description}</p>}
+                  {e.url && <a href={e.url} target="_blank" rel="noopener noreferrer" class="mt-2 inline-block text-sm text-(--color-clay) hover:underline">Details &rarr;</a>}
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+        {past.length > 0 && (
+          <section class="mt-14">
+            <p class="caption">Past</p>
+            <ul class="mt-4 divide-y divide-(--color-line)">
+              {past.map((e) => (
+                <li class="py-6">
+                  <p class="font-display text-xl">{e.title}</p>
+                  <p class="mt-1 text-sm text-(--color-ink-soft)">
+                    {[e.venue, e.city, e.country].filter(Boolean).join(', ')}
+                  </p>
+                  <p class="text-sm text-(--color-ink-faint)">{formatRange(e.start_date, e.end_date)}</p>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+      </>
+    ) : (
+      <p class="text-(--color-ink-soft)">No exhibitions to show yet.</p>
+    )}
+  </div>
+</Layout>

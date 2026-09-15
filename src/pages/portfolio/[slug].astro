@@ -13,7 +13,7 @@ if (!slug) {
 const { data: artwork } = await supabase
   .from('artworks')
   .select(
-    `id, title, year, description, material, dimensions, series, seo_title, seo_description,
+    `id, title, year, description, material, dimensions, series, display_order, seo_title, seo_description,
      primary_media:primary_image_id (storage_path, bucket, alt_text, width, height),
      artwork_images (display_order, caption, media:media_id (storage_path, bucket, alt_text, width, height))`
   )
@@ -25,8 +25,19 @@ if (!artwork) {
   return Astro.redirect('/404');
 }
 
+const { data: neighbors } = await supabase
+  .from('artworks')
+  .select('slug, title, display_order')
+  .eq('published', true)
+  .order('display_order');
+
+const ordered = neighbors ?? [];
+const currentIndex = ordered.findIndex((a) => a.display_order === artwork.display_order);
+const prev = currentIndex > 0 ? ordered[currentIndex - 1] : ordered[ordered.length - 1];
+const next = currentIndex >= 0 && currentIndex < ordered.length - 1 ? ordered[currentIndex + 1] : ordered[0];
+
 const galleryImages = (artwork.artwork_images ?? []).sort((a, b) => a.display_order - b.display_order);
-const title = artwork.seo_title ?? `${artwork.title} — jtp.skulptur`;
+const title = artwork.seo_title ?? `${artwork.title} — JTP Skulptur`;
 const description = artwork.seo_description ?? artwork.description ?? undefined;
 const ogImage = artwork.primary_media
   ? publicMediaUrl(artwork.primary_media.bucket, artwork.primary_media.storage_path)
@@ -34,29 +45,31 @@ const ogImage = artwork.primary_media
 ---
 
 <Layout title={title} description={description} ogImage={ogImage}>
-  <article class="mx-auto max-w-4xl px-6 py-12 sm:px-8">
-    <a href="/" class="text-sm text-(--color-ink-soft) hover:text-(--color-clay)">&larr; Portfolio</a>
-
-    <h1 class="font-display mt-6 text-3xl">{artwork.title}</h1>
-    <p class="mt-1 text-(--color-ink-soft)">
-      {[artwork.year, artwork.material, artwork.dimensions].filter(Boolean).join(' · ')}
-    </p>
-    {artwork.series && <p class="mt-1 text-sm text-(--color-ink-soft)">Series: {artwork.series}</p>}
-
+  <article>
     {artwork.primary_media && (
       <img
         src={publicMediaUrl(artwork.primary_media.bucket, artwork.primary_media.storage_path)}
         alt={artwork.primary_media.alt_text ?? artwork.title}
         width={artwork.primary_media.width ?? undefined}
         height={artwork.primary_media.height ?? undefined}
-        class="mt-8 w-full bg-(--color-paper-raised) object-cover"
+        fetchpriority="high"
+        class="max-h-[85svh] w-full bg-(--color-paper-raised) object-contain"
       />
     )}
 
-    {artwork.description && <p class="mt-8 max-w-prose leading-relaxed">{artwork.description}</p>}
+    <div class="mx-auto max-w-(--width-content) px-4 py-12 sm:px-8 sm:py-16">
+      <h1 class="font-display text-3xl sm:text-4xl">{artwork.title}</h1>
+      {(artwork.year || artwork.material || artwork.dimensions) && (
+        <p class="mt-2 text-(--color-ink-soft)">
+          {[artwork.year, artwork.material, artwork.dimensions].filter(Boolean).join(' · ')}
+        </p>
+      )}
+      {artwork.series && <p class="mt-1 text-sm text-(--color-ink-faint)">Series: {artwork.series}</p>}
+      {artwork.description && <p class="mt-8 leading-relaxed">{artwork.description}</p>}
+    </div>
 
     {galleryImages.length > 0 && (
-      <div class="mt-10 grid grid-cols-2 gap-2 sm:grid-cols-3">
+      <div class="mx-auto max-w-(--width-full) space-y-4 px-4 pb-16 sm:px-8">
         {galleryImages.map(({ media, caption }) => media && (
           <figure>
             <img
@@ -65,12 +78,29 @@ const ogImage = artwork.primary_media
               width={media.width ?? undefined}
               height={media.height ?? undefined}
               loading="lazy"
-              class="aspect-square w-full bg-(--color-paper-raised) object-cover"
+              class="w-full bg-(--color-paper-raised) object-contain"
             />
-            {caption && <figcaption class="mt-1 text-xs text-(--color-ink-soft)">{caption}</figcaption>}
+            {caption && <figcaption class="caption mt-2">{caption}</figcaption>}
           </figure>
         ))}
       </div>
     )}
+
+    <nav aria-label="More work" class="border-t border-(--color-line)">
+      <div class="mx-auto grid max-w-(--width-full) grid-cols-2 divide-x divide-(--color-line) px-4 sm:px-8">
+        {prev && (
+          <a href={`/portfolio/${prev.slug}`} class="group py-10 pr-4 hover:text-(--color-clay)">
+            <p class="caption">&larr; Previous</p>
+            <p class="font-display mt-2 text-lg">{prev.title}</p>
+          </a>
+        )}
+        {next && (
+          <a href={`/portfolio/${next.slug}`} class="group py-10 pl-4 text-right hover:text-(--color-clay)">
+            <p class="caption">Next &rarr;</p>
+            <p class="font-display mt-2 text-lg">{next.title}</p>
+          </a>
+        )}
+      </div>
+    </nav>
   </article>
 </Layout>

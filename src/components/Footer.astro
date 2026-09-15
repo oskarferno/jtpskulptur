@@ -2,28 +2,37 @@
 import { getSupabaseClient } from '../lib/supabase';
 
 const supabase = getSupabaseClient();
-const { data: socialLinks } = await supabase
-  .from('social_links')
-  .select('id, label, url')
-  .eq('published', true)
-  .order('display_order');
+
+const [{ data: socialLinks }, { data: settings }] = await Promise.all([
+  supabase.from('social_links').select('id, label, url').eq('published', true).order('display_order'),
+  supabase.from('site_settings').select('contact_email, tagline').single(),
+]);
 ---
 
-<footer class="border-t border-(--color-line) py-10">
-  <div class="mx-auto flex max-w-6xl flex-col items-center gap-3 px-6 text-sm text-(--color-ink-soft) sm:px-8">
-    {
-      socialLinks && socialLinks.length > 0 && (
-        <ul class="flex gap-4">
-          {socialLinks.map((link) => (
-            <li>
-              <a href={link.url} class="hover:text-(--color-clay)" target="_blank" rel="noopener noreferrer">
-                {link.label}
-              </a>
-            </li>
-          ))}
-        </ul>
-      )
-    }
-    <p>&copy; {new Date().getFullYear()} jtp.skulptur — sculpture · clay · ceramics</p>
+<footer class="border-t border-(--color-line)">
+  <div class="mx-auto max-w-(--width-full) px-4 py-12 sm:px-8 sm:py-16">
+    <div class="flex flex-col gap-8 sm:flex-row sm:items-end sm:justify-between">
+      <div>
+        <p class="font-display text-lg tracking-[0.08em] uppercase">JTP Skulptur</p>
+        {settings?.tagline && <p class="caption mt-2">{settings.tagline}</p>}
+      </div>
+      <ul class="flex flex-wrap gap-x-6 gap-y-2 text-sm text-(--color-ink-soft)">
+        {settings?.contact_email && (
+          <li>
+            <a href={`mailto:${settings.contact_email}`} class="hover:text-(--color-clay)">
+              {settings.contact_email}
+            </a>
+          </li>
+        )}
+        {socialLinks?.map((link) => (
+          <li>
+            <a href={link.url} target="_blank" rel="noopener noreferrer" class="hover:text-(--color-clay)">
+              {link.label}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </div>
+    <p class="caption mt-12">&copy; {new Date().getFullYear()} JTP Skulptur</p>
   </div>
 </footer>

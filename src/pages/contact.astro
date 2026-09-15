@@ -1,8 +1,10 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import { getSupabaseClient } from '../lib/supabase';
+import { publicMediaUrl } from '../lib/media';
 
 const supabase = getSupabaseClient();
+
 const { data: settings } = await supabase
   .from('site_settings')
   .select('contact_intro, contact_email, phone, studio_location, contact_form_enabled')
@@ -13,76 +15,97 @@ const { data: socialLinks } = await supabase
   .select('id, label, url')
   .eq('published', true)
   .order('display_order');
+
+const { data: sideImage } = await supabase
+  .from('artworks')
+  .select('title, media:primary_image_id (storage_path, bucket, alt_text)')
+  .eq('published', true)
+  .order('display_order', { ascending: false })
+  .limit(1)
+  .single();
 ---
 
-<Layout title="Contact — jtp.skulptur" description={settings?.contact_intro ?? undefined}>
-  <article class="mx-auto max-w-2xl px-6 py-12 sm:px-8">
-    <h1 class="font-display text-3xl">Contact</h1>
+<Layout title="Contact — JTP Skulptur" description={settings?.contact_intro ?? undefined}>
+  <div class="grid grid-cols-1 sm:min-h-[70svh] sm:grid-cols-2">
+    <div class="order-2 flex flex-col justify-center px-4 py-14 sm:order-1 sm:px-8 sm:py-20">
+      <p class="caption">Contact</p>
+      <h1 class="font-display mt-3 text-3xl sm:text-4xl">Get in touch</h1>
 
-    {settings?.contact_intro && <p class="mt-6 max-w-prose leading-relaxed">{settings.contact_intro}</p>}
+      {settings?.contact_intro && <p class="mt-6 max-w-prose leading-relaxed">{settings.contact_intro}</p>}
 
-    <dl class="mt-8 space-y-2 text-sm">
-      {settings?.contact_email && (
-        <div class="flex gap-2">
-          <dt class="text-(--color-ink-soft)">Email</dt>
-          <dd><a href={`mailto:${settings.contact_email}`} class="hover:text-(--color-clay)">{settings.contact_email}</a></dd>
-        </div>
+      <dl class="mt-10 space-y-3 text-sm">
+        {settings?.contact_email && (
+          <div class="flex gap-3">
+            <dt class="w-20 flex-shrink-0 text-(--color-ink-faint)">Email</dt>
+            <dd><a href={`mailto:${settings.contact_email}`} class="hover:text-(--color-clay)">{settings.contact_email}</a></dd>
+          </div>
+        )}
+        {settings?.phone && (
+          <div class="flex gap-3">
+            <dt class="w-20 flex-shrink-0 text-(--color-ink-faint)">Phone</dt>
+            <dd>{settings.phone}</dd>
+          </div>
+        )}
+        {settings?.studio_location && (
+          <div class="flex gap-3">
+            <dt class="w-20 flex-shrink-0 text-(--color-ink-faint)">Studio</dt>
+            <dd>{settings.studio_location}</dd>
+          </div>
+        )}
+        {socialLinks?.map((link) => (
+          <div class="flex gap-3">
+            <dt class="w-20 flex-shrink-0 text-(--color-ink-faint)">{link.label}</dt>
+            <dd><a href={link.url} target="_blank" rel="noopener noreferrer" class="hover:text-(--color-clay)">{link.url}</a></dd>
+          </div>
+        ))}
+      </dl>
+
+      {settings?.contact_form_enabled !== false && (
+        <form id="contact-form" method="POST" action="/api/contact" class="mt-12 max-w-md space-y-4">
+          <input type="text" name="company" tabindex="-1" autocomplete="off" class="hidden" aria-hidden="true" />
+          <input type="hidden" name="rendered_at" value={Date.now()} />
+
+          <div>
+            <label for="name" class="block text-sm text-(--color-ink-soft)">Name</label>
+            <input id="name" name="name" type="text" required maxlength="200"
+              class="mt-1 w-full border border-(--color-line) bg-transparent px-3 py-2 focus:border-(--color-clay)" />
+          </div>
+          <div>
+            <label for="email" class="block text-sm text-(--color-ink-soft)">Email</label>
+            <input id="email" name="email" type="email" required
+              class="mt-1 w-full border border-(--color-line) bg-transparent px-3 py-2 focus:border-(--color-clay)" />
+          </div>
+          <div>
+            <label for="subject" class="block text-sm text-(--color-ink-soft)">Subject</label>
+            <input id="subject" name="subject" type="text" maxlength="300"
+              class="mt-1 w-full border border-(--color-line) bg-transparent px-3 py-2 focus:border-(--color-clay)" />
+          </div>
+          <div>
+            <label for="message" class="block text-sm text-(--color-ink-soft)">Message</label>
+            <textarea id="message" name="message" required rows="5" maxlength="5000"
+              class="mt-1 w-full border border-(--color-line) bg-transparent px-3 py-2 focus:border-(--color-clay)"></textarea>
+          </div>
+
+          <button type="submit"
+            class="border border-(--color-ink) px-6 py-2 text-sm tracking-[0.04em] uppercase transition-colors hover:bg-(--color-ink) hover:text-(--color-paper)">
+            Submit
+          </button>
+
+          <p id="contact-status" role="status" class="text-sm"></p>
+        </form>
       )}
-      {settings?.phone && (
-        <div class="flex gap-2">
-          <dt class="text-(--color-ink-soft)">Phone</dt>
-          <dd>{settings.phone}</dd>
-        </div>
-      )}
-      {settings?.studio_location && (
-        <div class="flex gap-2">
-          <dt class="text-(--color-ink-soft)">Studio</dt>
-          <dd>{settings.studio_location}</dd>
-        </div>
-      )}
-      {socialLinks?.map((link) => (
-        <div class="flex gap-2">
-          <dt class="text-(--color-ink-soft)">{link.label}</dt>
-          <dd><a href={link.url} target="_blank" rel="noopener noreferrer" class="hover:text-(--color-clay)">{link.url}</a></dd>
-        </div>
-      ))}
-    </dl>
+    </div>
 
-    {settings?.contact_form_enabled !== false && (
-      <form id="contact-form" method="POST" action="/api/contact" class="mt-10 space-y-4">
-        <input type="text" name="company" tabindex="-1" autocomplete="off" class="hidden" aria-hidden="true" />
-        <input type="hidden" name="rendered_at" value={Date.now()} />
-
-        <div>
-          <label for="name" class="block text-sm text-(--color-ink-soft)">Name</label>
-          <input id="name" name="name" type="text" required maxlength="200"
-            class="mt-1 w-full border border-(--color-line) bg-transparent px-3 py-2 focus:border-(--color-clay) focus:outline-none" />
-        </div>
-        <div>
-          <label for="email" class="block text-sm text-(--color-ink-soft)">Email</label>
-          <input id="email" name="email" type="email" required
-            class="mt-1 w-full border border-(--color-line) bg-transparent px-3 py-2 focus:border-(--color-clay) focus:outline-none" />
-        </div>
-        <div>
-          <label for="subject" class="block text-sm text-(--color-ink-soft)">Subject</label>
-          <input id="subject" name="subject" type="text" maxlength="300"
-            class="mt-1 w-full border border-(--color-line) bg-transparent px-3 py-2 focus:border-(--color-clay) focus:outline-none" />
-        </div>
-        <div>
-          <label for="message" class="block text-sm text-(--color-ink-soft)">Message</label>
-          <textarea id="message" name="message" required rows="5" maxlength="5000"
-            class="mt-1 w-full border border-(--color-line) bg-transparent px-3 py-2 focus:border-(--color-clay) focus:outline-none"></textarea>
-        </div>
-
-        <button type="submit"
-          class="border border-(--color-ink) px-6 py-2 text-sm tracking-wide uppercase transition-colors hover:bg-(--color-ink) hover:text-(--color-paper)">
-          Submit
-        </button>
-
-        <p id="contact-status" role="status" class="text-sm"></p>
-      </form>
+    {sideImage?.media && (
+      <div class="order-1 sm:order-2">
+        <img
+          src={publicMediaUrl(sideImage.media.bucket, sideImage.media.storage_path)}
+          alt={sideImage.media.alt_text ?? sideImage.title}
+          class="h-[45svh] w-full object-cover object-top sm:h-full"
+        />
+      </div>
     )}
-  </article>
+  </div>
 
   <script>
     const form = document.getElementById('contact-form') as HTMLFormElement | null;

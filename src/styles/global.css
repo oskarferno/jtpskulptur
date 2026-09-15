@@ -1,32 +1,112 @@
 @import "tailwindcss";
 
 @theme {
-  --font-serif: ui-serif, Georgia, "Times New Roman", serif;
+  --font-serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, ui-serif, serif;
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 
+  /* Type scale — modular, 1.333 (perfect fourth) */
+  --text-caption: 0.75rem;
+  --text-small: 0.875rem;
+  --text-body: 1rem;
+  --text-lede: 1.25rem;
+  --text-h3: 1.5rem;
+  --text-h2: 2rem;
+  --text-h1: 2.75rem;
+  --text-display: 4rem;
+  --text-display-lg: 6rem;
+
+  /* Color — warm neutral gallery palette */
   --color-ink: #1c1a17;
-  --color-ink-soft: #4a453e;
+  --color-ink-soft: #55503f;
+  --color-ink-faint: #8c8573;
   --color-paper: #f4efe6;
-  --color-paper-raised: #ece5d8;
-  --color-line: #d8cfbf;
-  --color-clay: #8a5a3a;
+  --color-paper-raised: #ece4d4;
+  --color-line: #d5cab5;
+  --color-clay: #7a4a2a;
+
+  /* Content widths */
+  --width-content: 40rem;
+  --width-wide: 72rem;
+  --width-full: 96rem;
 }
 
 html {
   background: var(--color-paper);
   color: var(--color-ink);
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 body {
   font-family: var(--font-sans);
 }
 
-h1, h2, h3, .font-display {
+h1, h2, h3, h4, .font-display {
   font-family: var(--font-serif);
-  letter-spacing: 0.01em;
+  font-weight: 400;
+  letter-spacing: 0.003em;
+  line-height: 1.1;
+}
+
+p {
+  line-height: 1.65;
 }
 
 ::selection {
   background: var(--color-clay);
   color: var(--color-paper);
+}
+
+a, button, input, textarea, select {
+  transition: color 200ms ease, border-color 200ms ease, background-color 200ms ease, opacity 200ms ease;
+}
+
+/* Consistent, visible focus ring across the whole site */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--color-clay);
+  outline-offset: 3px;
+}
+
+input:focus-visible, textarea:focus-visible, select:focus-visible {
+  outline-offset: 0;
+}
+
+.caption {
+  font-size: var(--text-caption);
+  letter-spacing: 0.04em;
+  color: var(--color-ink-faint);
+}
+
+/* Slow, gentle reveal for images entering the viewport — degrades to
+   plain opacity 1 if JS never runs, and no-ops under reduced motion. */
+.reveal {
+  opacity: 0;
+  transform: translateY(12px);
+}
+
+.reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 550ms ease, transform 550ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal {
+    opacity: 1;
+    transform: none;
+  }
 }

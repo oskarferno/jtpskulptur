@@ -1,0 +1,46 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { getSupabaseClient } from '../../lib/supabase';
+import { publicMediaUrl } from '../../lib/media';
+
+const supabase = getSupabaseClient();
+
+const { data: posts } = await supabase
+  .from('posts')
+  .select('id, slug, title, excerpt, published_at, cover:cover_media_id (storage_path, bucket, alt_text)')
+  .eq('published', true)
+  .order('published_at', { ascending: false });
+---
+
+<Layout title="Journal — JTP Skulptur">
+  <header class="mx-auto max-w-(--width-content) px-4 pt-14 sm:px-8 sm:pt-20">
+    <p class="caption">Journal</p>
+    <h1 class="font-display mt-3 text-3xl sm:text-5xl">Journal</h1>
+  </header>
+
+  <div class="mx-auto max-w-(--width-wide) px-4 py-10 sm:px-8 sm:py-14">
+    {posts && posts.length > 0 ? (
+      <div class="grid grid-cols-1 gap-x-8 gap-y-14 sm:grid-cols-2">
+        {posts.map((post) => (
+          <a href={`/journal/${post.slug}`} class="group block">
+            {post.cover && (
+              <img
+                src={publicMediaUrl(post.cover.bucket, post.cover.storage_path)}
+                alt={post.cover.alt_text ?? ''}
+                loading="lazy"
+                class="aspect-[4/3] w-full bg-(--color-paper-raised) object-cover object-top"
+              />
+            )}
+            {post.published_at && (
+              <p class="caption mt-4">{new Date(post.published_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+            )}
+            <p class="font-display mt-2 text-xl group-hover:text-(--color-clay)">{post.title}</p>
+            {post.excerpt && <p class="mt-2 text-sm leading-relaxed text-(--color-ink-soft)">{post.excerpt}</p>}
+          </a>
+        ))}
+      </div>
+    ) : (
+      <p class="text-(--color-ink-soft)">No journal entries yet.</p>
+    )}
+  </div>
+</Layout>
