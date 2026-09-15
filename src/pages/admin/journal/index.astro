@@ -9,18 +9,28 @@ const { data: posts } = await supabase
 ---
 
 <AdminLayout title="News / Journal">
+  <div class="flex items-center justify-between">
+    <p class="text-sm text-(--color-ink-soft)">{posts?.length ?? 0} posts</p>
+    <a href="/admin/journal/new"
+      class="border border-(--color-ink) px-4 py-2 text-sm tracking-wide uppercase hover:bg-(--color-ink) hover:text-(--color-paper)">
+      + New post
+    </a>
+  </div>
+
   {
     posts && posts.length > 0 ? (
-      <ul class="divide-y divide-(--color-line) border border-(--color-line)">
+      <ul class="mt-6 divide-y divide-(--color-line) border border-(--color-line)">
         {posts.map((p) => (
-          <li class="flex items-center justify-between px-4 py-3">
-            <span>{p.title}</span>
-            <span class="text-sm text-(--color-ink-soft)">{p.published ? 'published' : 'draft'}</span>
+          <li>
+            <a href={`/admin/journal/${p.id}`} class="flex items-center justify-between px-4 py-3 hover:bg-(--color-paper-raised)">
+              <span>{p.title}</span>
+              <span class="text-sm text-(--color-ink-soft)">{p.published ? 'published' : 'draft'}</span>
+            </a>
           </li>
         ))}
       </ul>
     ) : (
-      <p class="text-(--color-ink-soft)">No posts yet.</p>
+      <p class="mt-6 text-(--color-ink-soft)">No posts yet.</p>
     )
   }
 </AdminLayout>

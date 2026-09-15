@@ -9,18 +9,28 @@ const { data: exhibitions } = await supabase
 ---
 
 <AdminLayout title="Exhibitions">
+  <div class="flex items-center justify-between">
+    <p class="text-sm text-(--color-ink-soft)">{exhibitions?.length ?? 0} exhibitions</p>
+    <a href="/admin/exhibitions/new"
+      class="border border-(--color-ink) px-4 py-2 text-sm tracking-wide uppercase hover:bg-(--color-ink) hover:text-(--color-paper)">
+      + New exhibition
+    </a>
+  </div>
+
   {
     exhibitions && exhibitions.length > 0 ? (
-      <ul class="divide-y divide-(--color-line) border border-(--color-line)">
+      <ul class="mt-6 divide-y divide-(--color-line) border border-(--color-line)">
         {exhibitions.map((e) => (
-          <li class="flex items-center justify-between px-4 py-3">
-            <span>{e.title}{e.venue ? ` — ${e.venue}` : ''}</span>
-            <span class="text-sm text-(--color-ink-soft)">{e.published ? 'published' : 'draft'}</span>
+          <li>
+            <a href={`/admin/exhibitions/${e.id}`} class="flex items-center justify-between px-4 py-3 hover:bg-(--color-paper-raised)">
+              <span>{e.title}{e.venue ? ` — ${e.venue}` : ''}</span>
+              <span class="text-sm text-(--color-ink-soft)">{e.published ? 'published' : 'draft'}</span>
+            </a>
           </li>
         ))}
       </ul>
     ) : (
-      <p class="text-(--color-ink-soft)">No exhibitions yet.</p>
+      <p class="mt-6 text-(--color-ink-soft)">No exhibitions yet.</p>
     )
   }
 </AdminLayout>

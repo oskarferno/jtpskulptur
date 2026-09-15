@@ -1,0 +1,42 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+---
+
+<AdminLayout title="New exhibition">
+  <form id="new-form" class="max-w-md space-y-4">
+    <div>
+      <label for="title" class="block text-sm text-(--color-ink-soft)">Title</label>
+      <input id="title" name="title" type="text" required
+        class="mt-1 w-full border border-(--color-line) bg-transparent px-3 py-2 focus:border-(--color-clay) focus:outline-none" />
+    </div>
+    <button type="submit"
+      class="border border-(--color-ink) px-6 py-2 text-sm tracking-wide uppercase hover:bg-(--color-ink) hover:text-(--color-paper)">
+      Create
+    </button>
+    <p id="form-status" role="status" class="text-sm"></p>
+  </form>
+
+  <script>
+    const form = document.getElementById('new-form') as HTMLFormElement;
+    const status = document.getElementById('form-status')!;
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      status.textContent = 'Creating…';
+      const response = await fetch('/api/admin/exhibitions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: new FormData(form).get('title') }),
+      });
+      const result = (await response.json().catch(() => ({}))) as {
+        exhibition?: { id: string };
+        error?: string;
+      };
+      if (response.ok && result.exhibition) {
+        window.location.href = `/admin/exhibitions/${result.exhibition.id}`;
+      } else {
+        status.textContent = result.error ?? 'Something went wrong.';
+      }
+    });
+  </script>
+</AdminLayout>
