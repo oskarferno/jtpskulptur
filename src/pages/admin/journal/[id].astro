@@ -20,7 +20,7 @@ if (!post) {
 ---
 
 <AdminLayout title={post.title}>
-  <form id="post-form" class="max-w-xl space-y-4">
+  <form id="post-form" class="max-w-xl space-y-4" data-post-id={post.id}>
     <label class="flex items-center gap-2 text-sm">
       <input type="checkbox" name="published" checked={post.published} />
       Published
@@ -75,10 +75,11 @@ if (!post) {
     </div>
   </form>
 
-  <script define:vars={{ postId: post.id }}>
-    const form = document.getElementById('post-form');
-    const status = document.getElementById('form-status');
+  <script>
+    const form = document.getElementById('post-form') as HTMLFormElement;
+    const status = document.getElementById('form-status')!;
     const deleteButton = document.getElementById('delete-button');
+    const postId = form.dataset.postId;
 
     form?.addEventListener('submit', async (event) => {
       event.preventDefault();
@@ -100,7 +101,7 @@ if (!post) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      const result = await response.json().catch(() => ({}));
+      const result = (await response.json().catch(() => ({}))) as { error?: string };
       status.textContent = response.ok ? 'Saved.' : (result.error ?? 'Something went wrong.');
     });
 

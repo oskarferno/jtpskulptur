@@ -27,7 +27,7 @@ const { data: categories } = await supabase.from('categories').select('id, name'
 ---
 
 <AdminLayout title={artwork.title}>
-  <form id="artwork-form" class="max-w-xl space-y-4">
+  <form id="artwork-form" class="max-w-xl space-y-4" data-artwork-id={artwork.id}>
     {artwork.primary_media && (
       <img
         src={publicMediaUrl(artwork.primary_media.bucket, artwork.primary_media.storage_path)}
@@ -129,10 +129,11 @@ const { data: categories } = await supabase.from('categories').select('id, name'
     </div>
   </form>
 
-  <script define:vars={{ artworkId: artwork.id }}>
-    const form = document.getElementById('artwork-form');
-    const status = document.getElementById('form-status');
+  <script>
+    const form = document.getElementById('artwork-form') as HTMLFormElement;
+    const status = document.getElementById('form-status')!;
     const deleteButton = document.getElementById('delete-button');
+    const artworkId = form.dataset.artworkId;
 
     form?.addEventListener('submit', async (event) => {
       event.preventDefault();
@@ -159,7 +160,7 @@ const { data: categories } = await supabase.from('categories').select('id, name'
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      const result = await response.json().catch(() => ({}));
+      const result = (await response.json().catch(() => ({}))) as { error?: string };
 
       status.textContent = response.ok ? 'Saved.' : (result.error ?? 'Something went wrong.');
     });

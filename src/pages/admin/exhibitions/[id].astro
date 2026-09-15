@@ -20,7 +20,7 @@ if (!exhibition) {
 ---
 
 <AdminLayout title={exhibition.title}>
-  <form id="exhibition-form" class="max-w-xl space-y-4">
+  <form id="exhibition-form" class="max-w-xl space-y-4" data-exhibition-id={exhibition.id}>
     <label class="flex items-center gap-2 text-sm">
       <input type="checkbox" name="published" checked={exhibition.published} />
       Published
@@ -93,10 +93,11 @@ if (!exhibition) {
     </div>
   </form>
 
-  <script define:vars={{ exhibitionId: exhibition.id }}>
-    const form = document.getElementById('exhibition-form');
-    const status = document.getElementById('form-status');
+  <script>
+    const form = document.getElementById('exhibition-form') as HTMLFormElement;
+    const status = document.getElementById('form-status')!;
     const deleteButton = document.getElementById('delete-button');
+    const exhibitionId = form.dataset.exhibitionId;
 
     form?.addEventListener('submit', async (event) => {
       event.preventDefault();
@@ -121,7 +122,7 @@ if (!exhibition) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      const result = await response.json().catch(() => ({}));
+      const result = (await response.json().catch(() => ({}))) as { error?: string };
       status.textContent = response.ok ? 'Saved.' : (result.error ?? 'Something went wrong.');
     });
 
