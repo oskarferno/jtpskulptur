@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { getSupabaseServerClient } from '../../lib/supabase-server';
+import { supabase } from '../../lib/supabase';
 
 export const prerender = false;
 
@@ -13,7 +13,7 @@ function badRequest(message: string) {
   });
 }
 
-export const POST: APIRoute = async ({ request, locals }) => {
+export const POST: APIRoute = async ({ request }) => {
   let form: FormData;
   try {
     form = await request.formData();
@@ -42,8 +42,6 @@ export const POST: APIRoute = async ({ request, locals }) => {
   if (!EMAIL_RE.test(email)) return badRequest('Please provide a valid email address.');
   if (subject.length > MAX_LEN.subject) return badRequest('Subject is too long.');
   if (!message || message.length > MAX_LEN.message) return badRequest('Please provide a message.');
-
-  const supabase = getSupabaseServerClient({ locals });
 
   const { error } = await supabase.from('contact_messages').insert({
     name,

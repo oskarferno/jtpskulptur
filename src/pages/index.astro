@@ -10,7 +10,7 @@ const { data: settings } = await supabase
 
 const { data: artworks } = await supabase
   .from('artworks')
-  .select('id, slug, title, year, primary_image_id, media:primary_image_id (storage_path, alt_text, width, height)')
+  .select('id, slug, title, year, primary_image_id, media:primary_image_id (storage_path, bucket, alt_text, width, height)')
   .eq('published', true)
   .order('display_order');
 
@@ -26,7 +26,7 @@ const description = settings?.seo_default_description ?? undefined;
           <a href={`/portfolio/${artwork.slug}`} class="group relative block overflow-hidden bg-(--color-paper-raised)">
             {artwork.media && (
               <img
-                src={publicMediaUrl('artwork-images', artwork.media.storage_path)}
+                src={publicMediaUrl(artwork.media.bucket, artwork.media.storage_path)}
                 alt={artwork.media.alt_text ?? artwork.title}
                 width={artwork.media.width ?? undefined}
                 height={artwork.media.height ?? undefined}

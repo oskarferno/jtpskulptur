@@ -1,0 +1,11 @@
+# Copy to .dev.vars for local development (gitignored, never commit real values).
+# In production these are set as Cloudflare Pages/Workers environment variables/secrets,
+# not read from any file — see the deployment guide for exact steps.
+
+# Public — safe to expose (also embedded in Supabase's own client-side auth flow)
+PUBLIC_SUPABASE_URL=
+PUBLIC_SUPABASE_ANON_KEY=
+
+# Secret — never commit, never paste into chat. Only needed for future admin
+# tooling that intentionally bypasses RLS (e.g. bulk media import scripts).
+SUPABASE_SERVICE_ROLE_KEY=

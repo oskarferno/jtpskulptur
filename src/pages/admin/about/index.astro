@@ -1,10 +1,176 @@
 ---
 import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { publicMediaUrl } from '../../../lib/media';
+
+const supabase = Astro.locals.supabase!;
+
+const { data: about } = await supabase
+  .from('about_content')
+  .select(
+    `artist_name, short_bio, full_bio, artist_statement, education, awards, collections, press,
+     portrait_media_id, cv_media_id,
+     portrait:portrait_media_id (storage_path, bucket),
+     cv:cv_media_id (storage_path, bucket)`
+  )
+  .single();
+
+type ListEntry = { year?: string; label?: string };
+function toLines(entries: unknown): string {
+  return ((entries ?? []) as ListEntry[])
+    .map((e) => [e.year, e.label].filter(Boolean).join(' — '))
+    .join('\n');
+}
+
+const educationLines = toLines(about?.education);
+const awardsLines = toLines(about?.awards);
+const collectionsLines = toLines(about?.collections);
+const pressLines = toLines(about?.press);
 ---
 
 <AdminLayout title="About">
-  <p class="text-(--color-ink-soft)">
-    Editing for bio, artist statement, CV, education, awards, collections, and press comes next — after the
-    Supabase project exists to store and test against.
-  </p>
+  <form id="about-form" class="max-w-xl space-y-6">
+    <div>
+      <label for="artist_name" class="block text-sm text-(--color-ink-soft)">Artist name</label>
+      <input id="artist_name" name="artist_name" type="text" value={about?.artist_name ?? ''}
+        class="mt-1 w-full border border-(--color-line) bg-transparent px-3 py-2 focus:border-(--color-clay) focus:outline-none" />
+    </div>
+
+    <div>
+      <span class="block text-sm text-(--color-ink-soft)">Portrait</span>
+      {about?.portrait && (
+        <img src={publicMediaUrl(about.portrait.bucket, about.portrait.storage_path)} alt=""
+          class="mt-2 h-24 w-24 rounded-full object-cover" />
+      )}
+      <input type="file" id="portrait-file" accept="image/jpeg,image/png,image/webp" class="mt-2 block text-sm" />
+      <input type="hidden" name="portrait_media_id" id="portrait_media_id" value={about?.portrait_media_id ?? ''} />
+      <p id="portrait-status" class="mt-1 text-xs text-(--color-ink-soft)"></p>
+    </div>
+
+    <div>
+      <label for="short_bio" class="block text-sm text-(--color-ink-soft)">Short bio (used for SEO/previews)</label>
+      <textarea id="short_bio" name="short_bio" rows="3"
+        class="mt-1 w-full border border-(--color-line) bg-transparent px-3 py-2 focus:border-(--color-clay) focus:outline-none">{about?.short_bio ?? ''}</textarea>
+    </div>
+
+    <div>
+      <label for="full_bio" class="block text-sm text-(--color-ink-soft)">Full bio</label>
+      <textarea id="full_bio" name="full_bio" rows="8"
+        class="mt-1 w-full border border-(--color-line) bg-transparent px-3 py-2 focus:border-(--color-clay) focus:outline-none">{about?.full_bio ?? ''}</textarea>
+    </div>
+
+    <div>
+      <label for="artist_statement" class="block text-sm text-(--color-ink-soft)">Artist statement</label>
+      <textarea id="artist_statement" name="artist_statement" rows="4"
+        class="mt-1 w-full border border-(--color-line) bg-transparent px-3 py-2 focus:border-(--color-clay) focus:outline-none">{about?.artist_statement ?? ''}</textarea>
+    </div>
+
+    <div>
+      <span class="block text-sm text-(--color-ink-soft)">CV (PDF)</span>
+      {about?.cv && (
+        <a href={publicMediaUrl(about.cv.bucket, about.cv.storage_path)} target="_blank" rel="noopener noreferrer"
+          class="mt-1 block text-sm underline">Current CV</a>
+      )}
+      <input type="file" id="cv-file" accept="application/pdf" class="mt-2 block text-sm" />
+      <input type="hidden" name="cv_media_id" id="cv_media_id" value={about?.cv_media_id ?? ''} />
+      <p id="cv-status" class="mt-1 text-xs text-(--color-ink-soft)"></p>
+    </div>
+
+    {[
+      { id: 'education', label: 'Education', value: educationLines },
+      { id: 'awards', label: 'Awards', value: awardsLines },
+      { id: 'collections', label: 'Collections', value: collectionsLines },
+      { id: 'press', label: 'Press', value: pressLines },
+    ].map((section) => (
+      <div>
+        <label for={section.id} class="block text-sm text-(--color-ink-soft)">
+          {section.label} <span class="text-xs">(one per line, e.g. "2019 — MFA, Konstfack")</span>
+        </label>
+        <textarea id={section.id} name={section.id} rows="4"
+          class="mt-1 w-full border border-(--color-line) bg-transparent px-3 py-2 font-mono text-sm focus:border-(--color-clay) focus:outline-none">{section.value}</textarea>
+      </div>
+    ))}
+
+    <div class="flex items-center gap-4">
+      <button type="submit"
+        class="border border-(--color-ink) px-6 py-2 text-sm tracking-wide uppercase hover:bg-(--color-ink) hover:text-(--color-paper)">
+        Save
+      </button>
+      <p id="form-status" role="status" class="text-sm"></p>
+    </div>
+  </form>
+
+  <script>
+    function parseLines(text: string): { year: string; label: string }[] {
+      return text
+        .split('\n')
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((line) => {
+          const [first, ...rest] = line.split('—').map((p) => p.trim());
+          return rest.length > 0 ? { year: first, label: rest.join('—').trim() } : { year: '', label: first };
+        });
+    }
+
+    async function uploadFile(input: HTMLInputElement, hiddenField: HTMLInputElement, statusEl: HTMLElement, bucket: string) {
+      input.addEventListener('change', async () => {
+        const file = input.files?.[0];
+        if (!file) return;
+        statusEl.textContent = 'Uploading…';
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('bucket', bucket);
+        const response = await fetch('/api/admin/media', { method: 'POST', body: formData });
+        const result = (await response.json().catch(() => ({}))) as { media?: { id: string }; error?: string };
+        if (response.ok && result.media) {
+          hiddenField.value = result.media.id;
+          statusEl.textContent = `Uploaded: ${file.name}`;
+        } else {
+          statusEl.textContent = result.error ?? 'Upload failed.';
+        }
+      });
+    }
+
+    uploadFile(
+      document.getElementById('portrait-file') as HTMLInputElement,
+      document.getElementById('portrait_media_id') as HTMLInputElement,
+      document.getElementById('portrait-status')!,
+      'site-media'
+    );
+    uploadFile(
+      document.getElementById('cv-file') as HTMLInputElement,
+      document.getElementById('cv_media_id') as HTMLInputElement,
+      document.getElementById('cv-status')!,
+      'documents'
+    );
+
+    const form = document.getElementById('about-form') as HTMLFormElement;
+    const status = document.getElementById('form-status')!;
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const formData = new FormData(form);
+
+      const payload = {
+        artist_name: formData.get('artist_name') || null,
+        portrait_media_id: formData.get('portrait_media_id') || null,
+        short_bio: formData.get('short_bio') || null,
+        full_bio: formData.get('full_bio') || null,
+        artist_statement: formData.get('artist_statement') || null,
+        cv_media_id: formData.get('cv_media_id') || null,
+        education: parseLines(String(formData.get('education') ?? '')),
+        awards: parseLines(String(formData.get('awards') ?? '')),
+        collections: parseLines(String(formData.get('collections') ?? '')),
+        press: parseLines(String(formData.get('press') ?? '')),
+      };
+
+      status.textContent = 'Saving…';
+      const response = await fetch('/api/admin/about', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const result = (await response.json().catch(() => ({}))) as { error?: string };
+      status.textContent = response.ok ? 'Saved.' : (result.error ?? 'Something went wrong.');
+    });
+  </script>
 </AdminLayout>

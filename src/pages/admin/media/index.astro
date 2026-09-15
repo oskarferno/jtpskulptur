@@ -1,9 +1,89 @@
 ---
 import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { publicMediaUrl } from '../../../lib/media';
+
+const supabase = Astro.locals.supabase!;
+
+const { data: media } = await supabase
+  .from('media')
+  .select('id, storage_path, bucket, alt_text, caption, mime_type, created_at')
+  .order('created_at', { ascending: false });
 ---
 
 <AdminLayout title="Media">
-  <p class="text-(--color-ink-soft)">
-    Upload, reuse, and manage alt text/captions for images and documents once Supabase Storage buckets are live.
-  </p>
+  <div>
+    <label for="upload-file" class="block text-sm text-(--color-ink-soft)">Upload new media</label>
+    <input type="file" id="upload-file" accept="image/jpeg,image/png,image/webp" class="mt-2 block text-sm" />
+    <p id="upload-status" class="mt-1 text-xs text-(--color-ink-soft)"></p>
+    <p class="mt-1 text-xs text-(--color-ink-soft)">
+      Uploads to the general site-media bucket. Portfolio images are managed per-artwork.
+    </p>
+  </div>
+
+  <ul id="media-grid" class="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
+    {
+      media?.map((m) => (
+        <li class="border border-(--color-line) p-2" data-media-id={m.id}>
+          {m.mime_type?.startsWith('image/') ? (
+            <img src={publicMediaUrl(m.bucket, m.storage_path)} alt={m.alt_text ?? ''} class="aspect-square w-full object-cover" />
+          ) : (
+            <div class="flex aspect-square w-full items-center justify-center bg-(--color-paper-raised) text-xs text-(--color-ink-soft)">
+              {m.mime_type}
+            </div>
+          )}
+          <input type="text" placeholder="Alt text" value={m.alt_text ?? ''} data-field="alt_text"
+            class="mt-2 w-full border border-(--color-line) bg-transparent px-2 py-1 text-xs focus:border-(--color-clay) focus:outline-none" />
+          <div class="mt-2 flex justify-end">
+            <button type="button" data-action="delete" class="text-xs text-red-700 hover:underline">Delete</button>
+          </div>
+        </li>
+      ))
+    }
+  </ul>
+
+  <script>
+    const uploadInput = document.getElementById('upload-file') as HTMLInputElement;
+    const uploadStatus = document.getElementById('upload-status')!;
+
+    uploadInput.addEventListener('change', async () => {
+      const file = uploadInput.files?.[0];
+      if (!file) return;
+      uploadStatus.textContent = 'Uploading…';
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('bucket', 'site-media');
+      const response = await fetch('/api/admin/media', { method: 'POST', body: formData });
+      if (response.ok) {
+        uploadStatus.textContent = 'Uploaded.';
+        window.location.reload();
+      } else {
+        const result = (await response.json().catch(() => ({}))) as { error?: string };
+        uploadStatus.textContent = result.error ?? 'Upload failed.';
+      }
+    });
+
+    document.querySelectorAll('#media-grid li').forEach((li) => {
+      const id = (li as HTMLElement).dataset.mediaId!;
+      const altInput = li.querySelector('[data-field="alt_text"]') as HTMLInputElement;
+      const deleteButton = li.querySelector('[data-action="delete"]') as HTMLButtonElement;
+
+      altInput.addEventListener('change', async () => {
+        await fetch(`/api/admin/media/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ alt_text: altInput.value }),
+        });
+      });
+
+      deleteButton.addEventListener('click', async () => {
+        if (!confirm('Delete this media file? If it is used by an artwork, page, or post, that reference will be cleared.')) return;
+        const response = await fetch(`/api/admin/media/${id}`, { method: 'DELETE' });
+        if (response.ok) {
+          li.remove();
+        } else {
+          alert('Could not delete.');
+        }
+      });
+    });
+  </script>
 </AdminLayout>

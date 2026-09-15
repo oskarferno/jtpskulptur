@@ -1,0 +1,177 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { publicMediaUrl } from '../../../lib/media';
+
+const supabase = Astro.locals.supabase!;
+const { id } = Astro.params;
+
+if (!id) {
+  return Astro.redirect('/admin/portfolio');
+}
+
+const { data: artwork } = await supabase
+  .from('artworks')
+  .select(
+    `id, slug, title, year, description, material, dimensions, series, category_id, published,
+     featured, display_order, seo_title, seo_description,
+     primary_media:primary_image_id (storage_path, bucket, alt_text)`
+  )
+  .eq('id', id)
+  .single();
+
+if (!artwork) {
+  return Astro.redirect('/admin/portfolio');
+}
+
+const { data: categories } = await supabase.from('categories').select('id, name').order('display_order');
+---
+
+<AdminLayout title={artwork.title}>
+  <form id="artwork-form" class="max-w-xl space-y-4">
+    {artwork.primary_media && (
+      <img
+        src={publicMediaUrl(artwork.primary_media.bucket, artwork.primary_media.storage_path)}
+        alt=""
+        class="aspect-square w-40 border border-(--color-line) object-cover"
+      />
+    )}
+
+    <div class="flex items-center gap-4 text-sm">
+      <label class="flex items-center gap-2">
+        <input type="checkbox" name="published" checked={artwork.published} />
+        Published
+      </label>
+      <label class="flex items-center gap-2">
+        <input type="checkbox" name="featured" checked={artwork.featured} />
+        Featured
+      </label>
+    </div>
+
+    <div>
+      <label for="title" class="block text-sm text-(--color-ink-soft)">Title</label>
+      <input id="title" name="title" type="text" required value={artwork.title}
+        class="mt-1 w-full border border-(--color-line) bg-transparent px-3 py-2 focus:border-(--color-clay) focus:outline-none" />
+    </div>
+
+    <div>
+      <label for="slug" class="block text-sm text-(--color-ink-soft)">Slug</label>
+      <input id="slug" name="slug" type="text" required value={artwork.slug} pattern="[a-z0-9]+(-[a-z0-9]+)*"
+        class="mt-1 w-full border border-(--color-line) bg-transparent px-3 py-2 focus:border-(--color-clay) focus:outline-none" />
+      <p class="mt-1 text-xs text-(--color-ink-soft)">Public URL: /portfolio/{artwork.slug}</p>
+    </div>
+
+    <div class="grid grid-cols-2 gap-4">
+      <div>
+        <label for="year" class="block text-sm text-(--color-ink-soft)">Year</label>
+        <input id="year" name="year" type="number" value={artwork.year ?? ''}
+          class="mt-1 w-full border border-(--color-line) bg-transparent px-3 py-2 focus:border-(--color-clay) focus:outline-none" />
+      </div>
+      <div>
+        <label for="category_id" class="block text-sm text-(--color-ink-soft)">Category</label>
+        <select id="category_id" name="category_id"
+          class="mt-1 w-full border border-(--color-line) bg-(--color-paper) px-3 py-2 focus:border-(--color-clay) focus:outline-none">
+          <option value="">—</option>
+          {categories?.map((c) => (
+            <option value={c.id} selected={c.id === artwork.category_id}>{c.name}</option>
+          ))}
+        </select>
+      </div>
+    </div>
+
+    <div>
+      <label for="material" class="block text-sm text-(--color-ink-soft)">Material</label>
+      <input id="material" name="material" type="text" value={artwork.material ?? ''}
+        class="mt-1 w-full border border-(--color-line) bg-transparent px-3 py-2 focus:border-(--color-clay) focus:outline-none" />
+    </div>
+
+    <div>
+      <label for="dimensions" class="block text-sm text-(--color-ink-soft)">Dimensions</label>
+      <input id="dimensions" name="dimensions" type="text" value={artwork.dimensions ?? ''}
+        class="mt-1 w-full border border-(--color-line) bg-transparent px-3 py-2 focus:border-(--color-clay) focus:outline-none" />
+    </div>
+
+    <div>
+      <label for="series" class="block text-sm text-(--color-ink-soft)">Series</label>
+      <input id="series" name="series" type="text" value={artwork.series ?? ''}
+        class="mt-1 w-full border border-(--color-line) bg-transparent px-3 py-2 focus:border-(--color-clay) focus:outline-none" />
+    </div>
+
+    <div>
+      <label for="description" class="block text-sm text-(--color-ink-soft)">Description</label>
+      <textarea id="description" name="description" rows="5"
+        class="mt-1 w-full border border-(--color-line) bg-transparent px-3 py-2 focus:border-(--color-clay) focus:outline-none">{artwork.description ?? ''}</textarea>
+    </div>
+
+    <fieldset class="border border-(--color-line) p-4">
+      <legend class="px-1 text-sm text-(--color-ink-soft)">SEO (optional — falls back to defaults if empty)</legend>
+      <div class="mt-2">
+        <label for="seo_title" class="block text-sm text-(--color-ink-soft)">SEO title</label>
+        <input id="seo_title" name="seo_title" type="text" value={artwork.seo_title ?? ''}
+          class="mt-1 w-full border border-(--color-line) bg-transparent px-3 py-2 focus:border-(--color-clay) focus:outline-none" />
+      </div>
+      <div class="mt-3">
+        <label for="seo_description" class="block text-sm text-(--color-ink-soft)">SEO description</label>
+        <textarea id="seo_description" name="seo_description" rows="2"
+          class="mt-1 w-full border border-(--color-line) bg-transparent px-3 py-2 focus:border-(--color-clay) focus:outline-none">{artwork.seo_description ?? ''}</textarea>
+      </div>
+    </fieldset>
+
+    <div class="flex items-center gap-4">
+      <button type="submit"
+        class="border border-(--color-ink) px-6 py-2 text-sm tracking-wide uppercase transition-colors hover:bg-(--color-ink) hover:text-(--color-paper)">
+        Save
+      </button>
+      <button type="button" id="delete-button"
+        class="text-sm text-red-700 hover:underline">
+        Delete
+      </button>
+      <p id="form-status" role="status" class="text-sm"></p>
+    </div>
+  </form>
+
+  <script define:vars={{ artworkId: artwork.id }}>
+    const form = document.getElementById('artwork-form');
+    const status = document.getElementById('form-status');
+    const deleteButton = document.getElementById('delete-button');
+
+    form?.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const formData = new FormData(form);
+
+      const payload = {
+        title: formData.get('title'),
+        slug: formData.get('slug'),
+        year: formData.get('year') ? Number(formData.get('year')) : null,
+        description: formData.get('description') || null,
+        material: formData.get('material') || null,
+        dimensions: formData.get('dimensions') || null,
+        series: formData.get('series') || null,
+        category_id: formData.get('category_id') || null,
+        published: formData.get('published') === 'on',
+        featured: formData.get('featured') === 'on',
+        seo_title: formData.get('seo_title') || null,
+        seo_description: formData.get('seo_description') || null,
+      };
+
+      status.textContent = 'Saving…';
+      const response = await fetch(`/api/admin/artworks/${artworkId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const result = await response.json().catch(() => ({}));
+
+      status.textContent = response.ok ? 'Saved.' : (result.error ?? 'Something went wrong.');
+    });
+
+    deleteButton?.addEventListener('click', async () => {
+      if (!confirm('Delete this artwork permanently? This cannot be undone.')) return;
+      const response = await fetch(`/api/admin/artworks/${artworkId}`, { method: 'DELETE' });
+      if (response.ok) {
+        window.location.href = '/admin/portfolio';
+      } else {
+        status.textContent = 'Could not delete.';
+      }
+    });
+  </script>
+</AdminLayout>

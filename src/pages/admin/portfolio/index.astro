@@ -1,29 +1,40 @@
 ---
 import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { publicMediaUrl } from '../../../lib/media';
 
 const supabase = Astro.locals.supabase!;
 
 const { data: artworks } = await supabase
   .from('artworks')
-  .select('id, title, slug, year, published, featured, display_order')
+  .select('id, title, slug, year, published, featured, display_order, primary_media:primary_image_id (storage_path, bucket)')
   .order('display_order');
 ---
 
 <AdminLayout title="Portfolio">
-  <p class="text-sm text-(--color-ink-soft)">
-    Create, publish, and reorder artworks. Full editing (images, materials, dimensions) lands once the
-    Supabase project and Storage buckets are connected.
-  </p>
+  <div class="flex items-center justify-between">
+    <p class="text-sm text-(--color-ink-soft)">{artworks?.length ?? 0} artworks</p>
+    <a href="/admin/portfolio/new"
+      class="border border-(--color-ink) px-4 py-2 text-sm tracking-wide uppercase hover:bg-(--color-ink) hover:text-(--color-paper)">
+      + New artwork
+    </a>
+  </div>
+
   {
     artworks && artworks.length > 0 ? (
       <ul class="mt-6 divide-y divide-(--color-line) border border-(--color-line)">
         {artworks.map((a) => (
-          <li class="flex items-center justify-between px-4 py-3">
-            <span>{a.title}</span>
-            <span class="text-sm text-(--color-ink-soft)">
-              {a.published ? 'published' : 'draft'}
-              {a.featured ? ' · featured' : ''}
-            </span>
+          <li>
+            <a href={`/admin/portfolio/${a.id}`} class="flex items-center gap-4 px-4 py-3 hover:bg-(--color-paper-raised)">
+              {a.primary_media && (
+                <img src={publicMediaUrl(a.primary_media.bucket, a.primary_media.storage_path)} alt=""
+                  class="h-12 w-12 flex-shrink-0 object-cover" />
+              )}
+              <span class="flex-1">{a.title}</span>
+              <span class="text-sm text-(--color-ink-soft)">
+                {a.published ? 'published' : 'draft'}
+                {a.featured ? ' · featured' : ''}
+              </span>
+            </a>
           </li>
         ))}
       </ul>

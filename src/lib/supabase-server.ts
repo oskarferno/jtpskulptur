@@ -1,25 +1,22 @@
 import { createClient } from '@supabase/supabase-js';
-import type { AstroGlobal } from 'astro';
+import { getEnv } from './env';
 import type { Database } from '../types/database';
 
 /**
- * Server-only Supabase client. Reads the service role key from the Cloudflare
- * runtime (production) or process.env (local `astro dev`/`.env`). Never expose
- * this client or its key to the browser.
+ * Server-only Supabase client using the service role key. Bypasses RLS —
+ * never expose this client or its key to the browser. Not currently wired
+ * to any route (the contact form and admin writes use RLS-scoped clients
+ * instead); kept for future admin tooling (e.g. bulk media import scripts)
+ * that genuinely needs to bypass RLS.
  */
-export function getSupabaseServerClient(Astro: Pick<AstroGlobal, 'locals'>) {
-  const runtimeEnv = (Astro.locals as { runtime?: { env?: Record<string, string> } })
-    .runtime?.env;
+export function getSupabaseServerClient() {
+  const { PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } = getEnv();
 
-  const url = runtimeEnv?.SUPABASE_URL ?? import.meta.env.SUPABASE_URL;
-  const serviceRoleKey =
-    runtimeEnv?.SUPABASE_SERVICE_ROLE_KEY ?? import.meta.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!url || !serviceRoleKey) {
-    throw new Error('Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
+  if (!SUPABASE_SERVICE_ROLE_KEY) {
+    throw new Error('Missing SUPABASE_SERVICE_ROLE_KEY');
   }
 
-  return createClient<Database>(url, serviceRoleKey, {
+  return createClient<Database>(PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 }

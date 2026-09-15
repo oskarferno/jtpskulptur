@@ -7,8 +7,8 @@ const { data: about } = await supabase
   .from('about_content')
   .select(
     `artist_name, short_bio, full_bio, artist_statement, education, awards, collections, press,
-     portrait:portrait_media_id (storage_path, alt_text),
-     cv:cv_media_id (storage_path)`
+     portrait:portrait_media_id (storage_path, bucket, alt_text),
+     cv:cv_media_id (storage_path, bucket)`
   )
   .single();
 
@@ -25,7 +25,7 @@ const press = (about?.press ?? []) as ListEntry[];
 
     {about?.portrait && (
       <img
-        src={publicMediaUrl('site-media', about.portrait.storage_path)}
+        src={publicMediaUrl(about.portrait.bucket, about.portrait.storage_path)}
         alt={about.portrait.alt_text ?? about?.artist_name ?? 'Portrait'}
         class="mt-8 aspect-square w-48 rounded-full object-cover"
       />
@@ -78,7 +78,7 @@ const press = (about?.press ?? []) as ListEntry[];
     {about?.cv && (
       <p class="mt-10">
         <a
-          href={publicMediaUrl('documents', about.cv.storage_path)}
+          href={publicMediaUrl(about.cv.bucket, about.cv.storage_path)}
           class="text-sm underline hover:text-(--color-clay)"
           target="_blank"
           rel="noopener noreferrer"

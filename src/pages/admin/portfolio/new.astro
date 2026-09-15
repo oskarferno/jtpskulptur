@@ -1,0 +1,64 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+---
+
+<AdminLayout title="New artwork">
+  <form id="new-artwork-form" class="max-w-md space-y-4">
+    <div>
+      <label for="title" class="block text-sm text-(--color-ink-soft)">Title</label>
+      <input id="title" name="title" type="text" required
+        class="mt-1 w-full border border-(--color-line) bg-transparent px-3 py-2 focus:border-(--color-clay) focus:outline-none" />
+    </div>
+    <div>
+      <label for="slug" class="block text-sm text-(--color-ink-soft)">Slug</label>
+      <input id="slug" name="slug" type="text" required pattern="[a-z0-9]+(-[a-z0-9]+)*"
+        placeholder="lowercase-with-hyphens"
+        class="mt-1 w-full border border-(--color-line) bg-transparent px-3 py-2 focus:border-(--color-clay) focus:outline-none" />
+    </div>
+    <button type="submit"
+      class="border border-(--color-ink) px-6 py-2 text-sm tracking-wide uppercase hover:bg-(--color-ink) hover:text-(--color-paper)">
+      Create
+    </button>
+    <p id="form-status" role="status" class="text-sm"></p>
+  </form>
+
+  <script>
+    const form = document.getElementById('new-artwork-form') as HTMLFormElement;
+    const status = document.getElementById('form-status')!;
+    const titleInput = document.getElementById('title') as HTMLInputElement;
+    const slugInput = document.getElementById('slug') as HTMLInputElement;
+    let slugEdited = false;
+
+    slugInput.addEventListener('input', () => { slugEdited = true; });
+    titleInput.addEventListener('input', () => {
+      if (slugEdited) return;
+      slugInput.value = titleInput.value
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+    });
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const formData = new FormData(form);
+      status.textContent = 'Creating…';
+
+      const response = await fetch('/api/admin/artworks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: formData.get('title'), slug: formData.get('slug') }),
+      });
+      const result = (await response.json().catch(() => ({}))) as {
+        artwork?: { id: string };
+        error?: string;
+      };
+
+      if (response.ok && result.artwork) {
+        window.location.href = `/admin/portfolio/${result.artwork.id}`;
+      } else {
+        status.textContent = result.error ?? 'Something went wrong.';
+      }
+    });
+  </script>
+</AdminLayout>

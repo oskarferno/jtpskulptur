@@ -3,7 +3,7 @@ import { getSupabaseSsrClient } from '../../../lib/supabase-ssr';
 
 export const prerender = false;
 
-export const POST: APIRoute = async ({ request, cookies, locals, redirect }) => {
+export const POST: APIRoute = async ({ request, cookies, redirect }) => {
   const form = await request.formData();
   const email = String(form.get('email') ?? '').trim();
   const password = String(form.get('password') ?? '');
@@ -12,8 +12,7 @@ export const POST: APIRoute = async ({ request, cookies, locals, redirect }) => 
     return redirect('/admin/login?error=missing');
   }
 
-  const runtimeEnv = (locals as { runtime?: { env?: Record<string, string> } }).runtime?.env;
-  const supabase = getSupabaseSsrClient(request, cookies, runtimeEnv);
+  const supabase = getSupabaseSsrClient(request, cookies);
 
   const { error } = await supabase.auth.signInWithPassword({ email, password });
 

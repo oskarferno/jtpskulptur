@@ -13,8 +13,8 @@ const { data: artwork } = await supabase
   .from('artworks')
   .select(
     `id, title, year, description, material, dimensions, series, seo_title, seo_description,
-     primary_media:primary_image_id (storage_path, alt_text, width, height),
-     artwork_images (display_order, caption, media:media_id (storage_path, alt_text, width, height))`
+     primary_media:primary_image_id (storage_path, bucket, alt_text, width, height),
+     artwork_images (display_order, caption, media:media_id (storage_path, bucket, alt_text, width, height))`
   )
   .eq('slug', slug)
   .eq('published', true)
@@ -27,7 +27,9 @@ if (!artwork) {
 const galleryImages = (artwork.artwork_images ?? []).sort((a, b) => a.display_order - b.display_order);
 const title = artwork.seo_title ?? `${artwork.title} — jtp.skulptur`;
 const description = artwork.seo_description ?? artwork.description ?? undefined;
-const ogImage = artwork.primary_media ? publicMediaUrl('artwork-images', artwork.primary_media.storage_path) : undefined;
+const ogImage = artwork.primary_media
+  ? publicMediaUrl(artwork.primary_media.bucket, artwork.primary_media.storage_path)
+  : undefined;
 ---
 
 <Layout title={title} description={description} ogImage={ogImage}>
@@ -42,7 +44,7 @@ const ogImage = artwork.primary_media ? publicMediaUrl('artwork-images', artwork
 
     {artwork.primary_media && (
       <img
-        src={publicMediaUrl('artwork-images', artwork.primary_media.storage_path)}
+        src={publicMediaUrl(artwork.primary_media.bucket, artwork.primary_media.storage_path)}
         alt={artwork.primary_media.alt_text ?? artwork.title}
         width={artwork.primary_media.width ?? undefined}
         height={artwork.primary_media.height ?? undefined}
@@ -57,7 +59,7 @@ const ogImage = artwork.primary_media ? publicMediaUrl('artwork-images', artwork
         {galleryImages.map(({ media, caption }) => media && (
           <figure>
             <img
-              src={publicMediaUrl('artwork-images', media.storage_path)}
+              src={publicMediaUrl(media.bucket, media.storage_path)}
               alt={media.alt_text ?? artwork.title}
               width={media.width ?? undefined}
               height={media.height ?? undefined}

@@ -23,6 +23,7 @@ export interface Database {
         Row: {
           id: string;
           storage_path: string;
+          bucket: 'artwork-images' | 'site-media' | 'documents';
           alt_text: string | null;
           caption: string | null;
           width: number | null;
@@ -32,6 +33,7 @@ export interface Database {
         };
         Insert: Partial<Database['public']['Tables']['media']['Row']> & {
           storage_path: string;
+          bucket: 'artwork-images' | 'site-media' | 'documents';
         };
         Update: Partial<Database['public']['Tables']['media']['Row']>;
         Relationships: [];
