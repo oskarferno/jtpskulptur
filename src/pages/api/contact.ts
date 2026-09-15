@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { supabase } from '../../lib/supabase';
+import { getSupabaseClient } from '../../lib/supabase';
 
 export const prerender = false;
 
@@ -43,6 +43,7 @@ export const POST: APIRoute = async ({ request }) => {
   if (subject.length > MAX_LEN.subject) return badRequest('Subject is too long.');
   if (!message || message.length > MAX_LEN.message) return badRequest('Please provide a message.');
 
+  const supabase = getSupabaseClient();
   const { error } = await supabase.from('contact_messages').insert({
     name,
     email,

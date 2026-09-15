@@ -1,8 +1,9 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import { supabase } from '../lib/supabase';
+import { getSupabaseClient } from '../lib/supabase';
 import { publicMediaUrl } from '../lib/media';
 
+const supabase = getSupabaseClient();
 const { data: settings } = await supabase
   .from('site_settings')
   .select('seo_default_title, seo_default_description')

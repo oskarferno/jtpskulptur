@@ -1,6 +1,7 @@
 ---
-import { supabase } from '../lib/supabase';
+import { getSupabaseClient } from '../lib/supabase';
 
+const supabase = getSupabaseClient();
 const { data: socialLinks } = await supabase
   .from('social_links')
   .select('id, label, url')

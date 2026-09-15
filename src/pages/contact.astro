@@ -1,7 +1,8 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import { supabase } from '../lib/supabase';
+import { getSupabaseClient } from '../lib/supabase';
 
+const supabase = getSupabaseClient();
 const { data: settings } = await supabase
   .from('site_settings')
   .select('contact_intro, contact_email, phone, studio_location, contact_form_enabled')

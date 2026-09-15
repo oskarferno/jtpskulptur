@@ -1,11 +1,12 @@
 import type { APIRoute } from 'astro';
-import { supabase } from '../lib/supabase';
+import { getSupabaseClient } from '../lib/supabase';
 
 export const prerender = false;
 
 const BASE = 'https://www.jtpskulptur.com';
 
 export const GET: APIRoute = async () => {
+  const supabase = getSupabaseClient();
   const [{ data: artworks }, { data: posts }] = await Promise.all([
     supabase.from('artworks').select('slug, updated_at').eq('published', true),
     supabase.from('posts').select('slug, updated_at').eq('published', true),
