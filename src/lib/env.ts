@@ -1,4 +1,8 @@
-import { env as cfEnv } from 'cloudflare:workers';
+import {
+  PUBLIC_SUPABASE_URL,
+  PUBLIC_SUPABASE_ANON_KEY,
+  SUPABASE_SERVICE_ROLE_KEY,
+} from 'astro:env/server';
 
 export interface RuntimeEnv {
   PUBLIC_SUPABASE_URL: string;
@@ -7,5 +11,5 @@ export interface RuntimeEnv {
 }
 
 export function getEnv(): RuntimeEnv {
-  return cfEnv as unknown as RuntimeEnv;
+  return { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY };
 }
