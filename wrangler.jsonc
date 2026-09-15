@@ -8,6 +8,10 @@
 		"directory": "./dist/client",
 		"binding": "ASSETS"
 	},
+	"vars": {
+		"PUBLIC_SUPABASE_URL": "https://ydhdpaddjonoavfouijv.supabase.co",
+		"PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlkaGRwYWRkam9ub2F2Zm91aWp2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk0NzMxOTAsImV4cCI6MjEwNTA0OTE5MH0.GEuQmVvi0OlLfESkTvwU4iNpauJj3ySTbIyw8drQo5s"
+	},
 	"observability": {
 		"enabled": true
 	}
