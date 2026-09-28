@@ -58,7 +58,11 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
   }
 
   const { data, error } = await supabase.from('exhibitions').update(update).eq('id', id).select().single();
-  if (error) return jsonError(error.message, 500);
+  if (error) {
+    if (error.code === '23505') return jsonError('That slug is already used by another exhibition.');
+    console.error('[admin exhibitions] update failed', error);
+    return jsonError('Could not save. Please try again.', 500);
+  }
 
   return new Response(JSON.stringify({ exhibition: data }), {
     status: 200,
@@ -72,7 +76,10 @@ export const DELETE: APIRoute = async ({ params, locals }) => {
   if (!id) return jsonError('Missing exhibition id.');
 
   const { error } = await supabase.from('exhibitions').delete().eq('id', id);
-  if (error) return jsonError(error.message, 500);
+  if (error) {
+    console.error('[admin exhibitions] delete failed', error);
+    return jsonError('Could not delete. Please try again.', 500);
+  }
 
   return new Response(JSON.stringify({ ok: true }), {
     status: 200,

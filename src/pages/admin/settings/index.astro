@@ -1,12 +1,40 @@
 ---
 import AdminLayout from '../../../layouts/AdminLayout.astro';
+import ImagePicker from '../../../components/admin/ImagePicker.astro';
+import { publicMediaUrl } from '../../../lib/media';
 
 const supabase = Astro.locals.supabase!;
-const { data: settings } = await supabase.from('site_settings').select('*').single();
+const [{ data: settings }, { data: fallbackArtwork }] = await Promise.all([
+  supabase
+    .from('site_settings')
+    .select('*, contact_image:contact_image_media_id (id, storage_path, bucket, alt_text)')
+    .single(),
+  // What the Contact page shows when no custom image is set — same query as
+  // src/pages/contact.astro, so the admin sees exactly what visitors see.
+  supabase
+    .from('artworks')
+    .select('title, media:primary_image_id (storage_path, bucket)')
+    .eq('published', true)
+    .order('display_order', { ascending: false })
+    .order('created_at', { ascending: false })
+    .order('id', { ascending: false })
+    .limit(1)
+    .single(),
+]);
+
+const contactImage = settings?.contact_image ?? null;
+const contactImageUrl = contactImage ? publicMediaUrl(contactImage.bucket, contactImage.storage_path) : null;
+const fallbackUrl = fallbackArtwork?.media ? publicMediaUrl(fallbackArtwork.media.bucket, fallbackArtwork.media.storage_path) : null;
 ---
 
 <AdminLayout title="Site Settings">
-  <form id="settings-form" class="max-w-xl space-y-4">
+  <form
+    id="settings-form"
+    class="max-w-xl space-y-4"
+    data-contact-image-url={contactImageUrl ?? ''}
+    data-contact-image-id={contactImage?.id ?? ''}
+    data-contact-image-alt={contactImage?.alt_text ?? ''}
+  >
     <div>
       <label for="site_title" class="block text-sm text-(--color-ink-soft)">Site title</label>
       <input id="site_title" name="site_title" type="text" required value={settings?.site_title}
@@ -49,6 +77,34 @@ const { data: settings } = await supabase.from('site_settings').select('*').sing
     </label>
 
     <fieldset class="border border-(--color-line) p-4">
+      <legend class="px-1 text-sm text-(--color-ink-soft)">Contact Page Image</legend>
+      <ImagePicker
+        idPrefix="contact-image"
+        label="Image shown beside the contact details"
+        aspect="aspect-[3/4]"
+        objectPosition="object-top"
+        helpText="JPG, PNG, or WebP. Max 20MB. Portrait photos work best — the image is cropped to fit, keeping the top."
+      />
+      <div class="mt-3">
+        <label for="contact-image-alt" class="block text-sm text-(--color-ink-soft)">Image description (for screen readers)</label>
+        <input id="contact-image-alt" type="text" maxlength="200" value={contactImage?.alt_text ?? ''}
+          class="mt-1 w-full border border-(--color-line) bg-transparent px-3 py-2 text-sm focus:border-(--color-clay) focus:outline-none" />
+      </div>
+      {
+        !contactImageUrl && (
+          <p class="mt-3 text-xs text-(--color-ink-faint)">
+            No custom image is set, so the Contact page currently shows the most recent artwork
+            {fallbackArtwork?.title ? ` (“${fallbackArtwork.title.trim()}”)` : ''}.
+            {fallbackUrl && (
+              <a href={fallbackUrl} target="_blank" rel="noopener noreferrer" class="underline">See it</a>
+            )}
+            Choose an image above and save to replace it. “Remove image” switches back to this default.
+          </p>
+        )
+      }
+    </fieldset>
+
+    <fieldset class="border border-(--color-line) p-4">
       <legend class="px-1 text-sm text-(--color-ink-soft)">Default SEO (used when a page has no override)</legend>
       <div class="mt-2">
         <label for="seo_default_title" class="block text-sm text-(--color-ink-soft)">Default title</label>
@@ -72,14 +128,33 @@ const { data: settings } = await supabase.from('site_settings').select('*').sing
   </form>
 
   <script>
+    import { initImagePicker, uploadImage } from '../../../lib/admin-image-picker';
+
     const form = document.getElementById('settings-form') as HTMLFormElement;
     const status = document.getElementById('form-status')!;
+    const altInput = document.getElementById('contact-image-alt') as HTMLInputElement;
+
+    const existingImageId = form.dataset.contactImageId || null;
+    const existingAlt = form.dataset.contactImageAlt ?? '';
+
+    // Nothing is uploaded until Save — choosing a file only previews it, so
+    // abandoning the page never leaves an orphaned upload behind.
+    const contactPicker = initImagePicker(
+      {
+        fileInput: document.getElementById('contact-image-file') as HTMLInputElement,
+        preview: document.getElementById('contact-image-preview') as HTMLImageElement,
+        placeholder: document.getElementById('contact-image-placeholder')!,
+        removeButton: document.getElementById('contact-image-remove') as HTMLButtonElement,
+        status: document.getElementById('contact-image-status')!,
+      },
+      form.dataset.contactImageUrl || null
+    );
 
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
       const formData = new FormData(form);
 
-      const payload = {
+      const payload: Record<string, unknown> = {
         site_title: formData.get('site_title'),
         tagline: formData.get('tagline') || null,
         contact_email: formData.get('contact_email') || null,
@@ -92,6 +167,30 @@ const { data: settings } = await supabase.from('site_settings').select('*').sing
       };
 
       status.textContent = 'Saving…';
+      const imageState = contactPicker.getState();
+      const alt = altInput.value.trim();
+      const imageChanged = imageState.kind !== 'unchanged';
+
+      try {
+        if (imageState.kind === 'file') {
+          payload.contact_image_media_id = await uploadImage(imageState.file, 'site-media', alt || 'JTP Skulptur');
+        } else if (imageState.kind === 'removed') {
+          // Only unlinks it: the file stays in the media library, since it
+          // may be used elsewhere. The Contact page falls back to its default.
+          payload.contact_image_media_id = null;
+        } else if (existingImageId && alt !== existingAlt) {
+          const altResponse = await fetch(`/api/admin/media/${existingImageId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ alt_text: alt || null }),
+          });
+          if (!altResponse.ok) throw new Error('Could not save the image description.');
+        }
+      } catch (error) {
+        status.textContent = error instanceof Error ? error.message : 'Image upload failed.';
+        return;
+      }
+
       const response = await fetch('/api/admin/settings', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -99,6 +198,10 @@ const { data: settings } = await supabase.from('site_settings').select('*').sing
       });
       const result = (await response.json().catch(() => ({}))) as { error?: string };
       status.textContent = response.ok ? 'Saved.' : (result.error ?? 'Something went wrong.');
+
+      // Reload after an image change so the preview, the "default image"
+      // note and the picker's own state all reflect what was just saved.
+      if (response.ok && (imageChanged || alt !== existingAlt)) setTimeout(() => window.location.reload(), 700);
     });
   </script>
 </AdminLayout>

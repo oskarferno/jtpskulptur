@@ -1,0 +1,15 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import NewsletterComposer from '../../../components/admin/NewsletterComposer.astro';
+
+const supabase = Astro.locals.supabase!;
+
+const { count: confirmedCount } = await supabase
+  .from('newsletter_subscribers')
+  .select('id', { count: 'exact', head: true })
+  .eq('status', 'confirmed');
+---
+
+<AdminLayout title="New newsletter">
+  <NewsletterComposer campaign={null} confirmedSubscriberCount={confirmedCount ?? 0} />
+</AdminLayout>

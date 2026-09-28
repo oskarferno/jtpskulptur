@@ -28,7 +28,11 @@ export const POST: APIRoute = async ({ request, locals }) => {
   }
 
   const { data, error } = await supabase.from('exhibitions').insert({ title, slug, published: false }).select().single();
-  if (error) return jsonError(error.message, 500);
+  if (error) {
+    if (error.code === '23505') return jsonError('That slug is already used by another exhibition.');
+    console.error('[admin exhibitions] create failed', error);
+    return jsonError('Could not create exhibition. Please try again.', 500);
+  }
 
   return new Response(JSON.stringify({ exhibition: data }), {
     status: 201,

@@ -7,7 +7,7 @@ const supabase = Astro.locals.supabase!;
 const { data: about } = await supabase
   .from('about_content')
   .select(
-    `artist_name, short_bio, full_bio, artist_statement, education, awards, collections, press,
+    `artist_name, short_bio, homepage_bio, full_bio, artist_statement, education, awards, collections, press,
      portrait_media_id, cv_media_id,
      portrait:portrait_media_id (storage_path, bucket),
      cv:cv_media_id (storage_path, bucket)`
@@ -46,16 +46,37 @@ const pressLines = toLines(about?.press);
       <p id="portrait-status" class="mt-1 text-xs text-(--color-ink-soft)"></p>
     </div>
 
-    <div>
-      <label for="short_bio" class="block text-sm text-(--color-ink-soft)">Short bio (used for SEO/previews)</label>
-      <textarea id="short_bio" name="short_bio" rows="3"
-        class="mt-1 w-full border border-(--color-line) bg-transparent px-3 py-2 focus:border-(--color-clay) focus:outline-none">{about?.short_bio ?? ''}</textarea>
-    </div>
+    <fieldset class="space-y-5 border border-(--color-line) p-4">
+      <legend class="px-1 text-sm text-(--color-ink-soft)">Artist content</legend>
+
+      <div>
+        <label for="homepage_bio" class="block text-sm text-(--color-ink-soft)">Homepage Artist Bio</label>
+        <p class="mt-0.5 text-xs text-(--color-ink-faint)">
+          Shown on the <strong>homepage</strong>, in “The Artist” section under the artist’s name. Keep it short.
+          Not shown on the About page.
+        </p>
+        <textarea id="homepage_bio" name="homepage_bio" rows="4"
+          class="mt-1 w-full border border-(--color-line) bg-transparent px-3 py-2 focus:border-(--color-clay) focus:outline-none">{about?.homepage_bio ?? ''}</textarea>
+      </div>
+
+      <div>
+        <label for="full_bio" class="block text-sm text-(--color-ink-soft)">About Page Bio</label>
+        <p class="mt-0.5 text-xs text-(--color-ink-faint)">
+          Shown on the <strong>About page</strong>. Can be as long as you like; each new line becomes a paragraph.
+          Not shown on the homepage.
+        </p>
+        <textarea id="full_bio" name="full_bio" rows="10"
+          class="mt-1 w-full border border-(--color-line) bg-transparent px-3 py-2 focus:border-(--color-clay) focus:outline-none">{about?.full_bio ?? ''}</textarea>
+      </div>
+    </fieldset>
 
     <div>
-      <label for="full_bio" class="block text-sm text-(--color-ink-soft)">Full bio</label>
-      <textarea id="full_bio" name="full_bio" rows="8"
-        class="mt-1 w-full border border-(--color-line) bg-transparent px-3 py-2 focus:border-(--color-clay) focus:outline-none">{about?.full_bio ?? ''}</textarea>
+      <label for="short_bio" class="block text-sm text-(--color-ink-soft)">Short bio (used for SEO/previews)</label>
+      <p class="mt-0.5 text-xs text-(--color-ink-faint)">
+        Search-result and share-preview description for the About page. Also the fallback text if the Homepage Artist Bio or About Page Bio is left empty.
+      </p>
+      <textarea id="short_bio" name="short_bio" rows="3"
+        class="mt-1 w-full border border-(--color-line) bg-transparent px-3 py-2 focus:border-(--color-clay) focus:outline-none">{about?.short_bio ?? ''}</textarea>
     </div>
 
     <div>
@@ -154,7 +175,6 @@ const pressLines = toLines(about?.press);
         artist_name: formData.get('artist_name') || null,
         portrait_media_id: formData.get('portrait_media_id') || null,
         short_bio: formData.get('short_bio') || null,
-        full_bio: formData.get('full_bio') || null,
         artist_statement: formData.get('artist_statement') || null,
         cv_media_id: formData.get('cv_media_id') || null,
         education: parseLines(String(formData.get('education') ?? '')),
@@ -162,6 +182,16 @@ const pressLines = toLines(about?.press);
         collections: parseLines(String(formData.get('collections') ?? '')),
         press: parseLines(String(formData.get('press') ?? '')),
       };
+
+      // The two bios are independent: each is only sent if it was actually
+      // edited in this form, so saving one can never overwrite the other —
+      // even from a stale tab that still holds the other's old text.
+      for (const name of ['homepage_bio', 'full_bio'] as const) {
+        const field = form.elements.namedItem(name) as HTMLTextAreaElement;
+        if (field.value !== field.defaultValue) {
+          (payload as Record<string, unknown>)[name] = field.value.trim() || null;
+        }
+      }
 
       status.textContent = 'Saving…';
       const response = await fetch('/api/admin/about', {
@@ -171,6 +201,13 @@ const pressLines = toLines(about?.press);
       });
       const result = (await response.json().catch(() => ({}))) as { error?: string };
       status.textContent = response.ok ? 'Saved.' : (result.error ?? 'Something went wrong.');
+      if (response.ok) {
+        // What was just saved is now the baseline for the next save.
+        for (const name of ['homepage_bio', 'full_bio']) {
+          const field = form.elements.namedItem(name) as HTMLTextAreaElement;
+          field.defaultValue = field.value;
+        }
+      }
     });
   </script>
 </AdminLayout>

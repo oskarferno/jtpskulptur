@@ -1,0 +1,167 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+
+const supabase = Astro.locals.supabase!;
+
+const { data: subscribers } = await supabase
+  .from('newsletter_subscribers')
+  .select('id, email, status, created_at, confirmed_at')
+  .order('created_at', { ascending: false });
+
+const { data: campaigns } = await supabase
+  .from('newsletter_campaigns')
+  .select('id, subject, status, sent_at, recipient_count, created_at, updated_at')
+  .order('created_at', { ascending: false });
+
+const confirmedCount = (subscribers ?? []).filter((s) => s.status === 'confirmed').length;
+---
+
+<AdminLayout title="Newsletter">
+  <section>
+    <div class="flex items-center justify-between">
+      <h2 class="font-display text-xl">Newsletters</h2>
+      <a href="/admin/newsletter/new"
+        class="border border-(--color-ink) px-4 py-2 text-sm tracking-wide uppercase hover:bg-(--color-ink) hover:text-(--color-paper)">
+        + New newsletter
+      </a>
+    </div>
+
+    {
+      campaigns && campaigns.length > 0 ? (
+        <div class="mt-4 overflow-x-auto">
+        <table class="w-full border border-(--color-line) text-sm">
+          <thead>
+            <tr class="border-b border-(--color-line) text-left text-(--color-ink-soft)">
+              <th class="px-3 py-2">Newsletter</th>
+              <th class="px-3 py-2">Status</th>
+              <th class="hidden px-3 py-2 sm:table-cell">Created</th>
+              <th class="hidden px-3 py-2 md:table-cell">Updated</th>
+              <th class="hidden px-3 py-2 md:table-cell">Sent</th>
+              <th class="px-3 py-2">Recipients</th>
+              <th class="px-3 py-2"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {campaigns.map((c) => (
+              <tr class="campaign-row border-b border-(--color-line) last:border-0 hover:bg-(--color-paper-raised)" data-campaign-id={c.id}>
+                <td class="px-3 py-2">
+                  <a href={`/admin/newsletter/${c.id}`} class="hover:text-(--color-clay)">{c.subject || '(untitled)'}</a>
+                </td>
+                <td class="px-3 py-2 text-(--color-ink-soft)">{c.status === 'sent' ? 'Sent' : 'Draft'}</td>
+                <td class="hidden px-3 py-2 text-(--color-ink-soft) sm:table-cell">{new Date(c.created_at).toLocaleDateString('en-GB')}</td>
+                <td class="hidden px-3 py-2 text-(--color-ink-soft) md:table-cell">{new Date(c.updated_at).toLocaleDateString('en-GB')}</td>
+                <td class="hidden px-3 py-2 text-(--color-ink-soft) md:table-cell">{c.sent_at ? new Date(c.sent_at).toLocaleDateString('en-GB') : '—'}</td>
+                <td class="px-3 py-2 text-(--color-ink-soft)">{c.recipient_count ?? '—'}</td>
+                <td class="px-3 py-2 text-right">
+                  {c.status !== 'sent' && (
+                    <button type="button" class="delete-campaign-btn text-(--color-ink-faint) hover:text-red-700" data-campaign-id={c.id}>
+                      Delete
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        </div>
+      ) : (
+        <p class="mt-4 text-sm text-(--color-ink-soft)">No newsletters yet.</p>
+      )
+    }
+  </section>
+
+  <section class="mt-12">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <h2 class="font-display text-xl">Subscribers ({subscribers?.length ?? 0} &middot; {confirmedCount} confirmed)</h2>
+      <input id="subscriber-search" type="search" placeholder="Search email…"
+        class="border border-(--color-line) bg-transparent px-3 py-1.5 text-sm focus:border-(--color-clay) focus:outline-none" />
+    </div>
+
+    <div class="mt-3 flex flex-wrap gap-2 text-xs" id="subscriber-filters">
+      {['all', 'confirmed', 'pending', 'unsubscribed'].map((f, i) => (
+        <button type="button" data-filter={f} data-active={i === 0 ? 'true' : 'false'}
+          class:list={[
+            'border px-3 py-1 uppercase tracking-[0.04em]',
+            i === 0 ? 'border-(--color-ink)' : 'border-(--color-line) text-(--color-ink-soft)',
+          ]}>
+          {f}
+        </button>
+      ))}
+    </div>
+
+    <div class="mt-4 overflow-x-auto">
+    <table class="w-full border border-(--color-line) text-sm">
+      <thead>
+        <tr class="border-b border-(--color-line) text-left text-(--color-ink-soft)">
+          <th class="px-3 py-2">Email</th>
+          <th class="px-3 py-2">Status</th>
+          <th class="px-3 py-2">Signed up</th>
+          <th class="hidden px-3 py-2 sm:table-cell">Confirmed</th>
+        </tr>
+      </thead>
+      <tbody id="subscriber-rows">
+        {subscribers?.map((s) => (
+          <tr class="subscriber-row border-b border-(--color-line) last:border-0" data-email={s.email.toLowerCase()} data-status={s.status}>
+            <td class="px-3 py-2">{s.email}</td>
+            <td class="px-3 py-2">{s.status}</td>
+            <td class="px-3 py-2 text-(--color-ink-soft)">{new Date(s.created_at).toLocaleDateString('en-GB')}</td>
+            <td class="hidden px-3 py-2 text-(--color-ink-soft) sm:table-cell">{s.confirmed_at ? new Date(s.confirmed_at).toLocaleDateString('en-GB') : '—'}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+    </div>
+    <p id="no-subscribers" class="mt-3 hidden text-sm text-(--color-ink-soft)">No subscribers match.</p>
+  </section>
+
+  <script>
+    document.querySelectorAll<HTMLButtonElement>('.delete-campaign-btn').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('Delete this draft newsletter? This cannot be undone.')) return;
+        const id = btn.dataset.campaignId;
+        const response = await fetch(`/api/admin/newsletter/${id}`, { method: 'DELETE' });
+        if (response.ok) {
+          btn.closest('.campaign-row')?.remove();
+        } else {
+          const result = (await response.json().catch(() => ({}))) as { error?: string };
+          alert(result.error ?? 'Could not delete.');
+        }
+      });
+    });
+
+    const searchInput = document.getElementById('subscriber-search') as HTMLInputElement;
+    const filterButtons = document.querySelectorAll<HTMLButtonElement>('#subscriber-filters button');
+    const rows = document.querySelectorAll<HTMLTableRowElement>('.subscriber-row');
+    const noSubscribers = document.getElementById('no-subscribers')!;
+    let activeFilter = 'all';
+
+    function applyFilters() {
+      const q = searchInput.value.trim().toLowerCase();
+      let visible = 0;
+      rows.forEach((row) => {
+        const matchesFilter = activeFilter === 'all' || row.dataset.status === activeFilter;
+        const matchesSearch = q.length === 0 || !!row.dataset.email?.includes(q);
+        const show = matchesFilter && matchesSearch;
+        row.hidden = !show;
+        if (show) visible += 1;
+      });
+      noSubscribers.classList.toggle('hidden', visible > 0);
+    }
+
+    searchInput.addEventListener('input', applyFilters);
+
+    filterButtons.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        activeFilter = btn.dataset.filter ?? 'all';
+        filterButtons.forEach((b) => {
+          const active = b === btn;
+          b.dataset.active = active ? 'true' : 'false';
+          b.className = active
+            ? 'border px-3 py-1 uppercase tracking-[0.04em] border-(--color-ink)'
+            : 'border px-3 py-1 uppercase tracking-[0.04em] border-(--color-line) text-(--color-ink-soft)';
+        });
+        applyFilters();
+      });
+    });
+  </script>
+</AdminLayout>

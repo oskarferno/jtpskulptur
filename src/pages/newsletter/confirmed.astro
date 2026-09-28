@@ -1,0 +1,22 @@
+---
+import Layout from '../../layouts/Layout.astro';
+
+const ok = Astro.url.searchParams.get('ok') === '1';
+---
+
+<Layout title="Newsletter — JTP Skulptur" noindex>
+  <div class="mx-auto flex min-h-[50svh] max-w-(--measure-content) flex-col items-center justify-center px-4 text-center sm:px-8">
+    {ok ? (
+      <>
+        <h1 class="font-display text-3xl sm:text-4xl">Subscription confirmed</h1>
+        <p class="mt-4 text-(--color-ink-soft)">Thank you — you're on the list.</p>
+      </>
+    ) : (
+      <>
+        <h1 class="font-display text-3xl sm:text-4xl">Link expired or invalid</h1>
+        <p class="mt-4 text-(--color-ink-soft)">Please try subscribing again.</p>
+      </>
+    )}
+    <a href="/" class="mt-8 text-sm tracking-[0.04em] text-(--color-clay) hover:underline">Back to home &rarr;</a>
+  </div>
+</Layout>

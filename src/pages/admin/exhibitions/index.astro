@@ -4,8 +4,33 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
 const supabase = Astro.locals.supabase!;
 const { data: exhibitions } = await supabase
   .from('exhibitions')
-  .select('id, title, venue, start_date, published, exhibition_type')
+  .select('id, title, venue, start_date, end_date, published, exhibition_type')
   .order('start_date', { ascending: false });
+
+const today = new Date().toISOString().slice(0, 10);
+
+// Same date rule the public Exhibitions page uses (src/pages/exhibitions/
+// index.astro): an exhibition with no end_date is treated as never having
+// ended, not as past. "Current" is carved out of that same "not past" set
+// purely for this admin list's grouping — it doesn't change which bucket
+// (upcoming vs. past) a record falls into publicly.
+const isPast = (e: { end_date: string | null }) => !!e.end_date && e.end_date < today;
+const isCurrent = (e: { start_date: string | null; end_date: string | null }) =>
+  !!e.start_date && !!e.end_date && e.start_date <= today && today <= e.end_date;
+
+const drafts = (exhibitions ?? []).filter((e) => !e.published);
+const publishedEx = (exhibitions ?? []).filter((e) => e.published);
+const past = publishedEx.filter(isPast);
+const notPast = publishedEx.filter((e) => !isPast(e));
+const current = notPast.filter(isCurrent);
+const upcoming = notPast.filter((e) => !isCurrent(e));
+
+const groups: { label: string; items: typeof publishedEx }[] = [
+  { label: 'Current', items: current },
+  { label: 'Upcoming', items: upcoming },
+  { label: 'Draft', items: drafts },
+  { label: 'Past', items: past },
+].filter((g) => g.items.length > 0);
 ---
 
 <AdminLayout title="Exhibitions">
@@ -18,20 +43,25 @@ const { data: exhibitions } = await supabase
   </div>
 
   {
-    exhibitions && exhibitions.length > 0 ? (
-      <ul class="mt-6 divide-y divide-(--color-line) border border-(--color-line)">
-        {exhibitions.map((e) => (
-          <li>
-            <a href={`/admin/exhibitions/${e.id}`} class="flex items-center justify-between px-4 py-3 hover:bg-(--color-paper-raised)">
-              <span>
-                {e.title}{e.venue ? ` — ${e.venue}` : ''}
-                {e.exhibition_type && <span class="text-(--color-ink-faint)"> ({e.exhibition_type})</span>}
-              </span>
-              <span class="text-sm text-(--color-ink-soft)">{e.published ? 'published' : 'draft'}</span>
-            </a>
-          </li>
-        ))}
-      </ul>
+    groups.length > 0 ? (
+      groups.map((group) => (
+        <div class="mt-8 first:mt-6">
+          <p class="mb-2 text-xs tracking-[0.04em] text-(--color-ink-soft) uppercase">{group.label}</p>
+          <ul class="divide-y divide-(--color-line) border border-(--color-line)">
+            {group.items.map((e) => (
+              <li>
+                <a href={`/admin/exhibitions/${e.id}`} class="flex items-center justify-between px-4 py-3 hover:bg-(--color-paper-raised)">
+                  <span>
+                    {e.title}{e.venue ? ` — ${e.venue}` : ''}
+                    {e.exhibition_type && <span class="text-(--color-ink-faint)"> ({e.exhibition_type})</span>}
+                  </span>
+                  <span class="text-sm text-(--color-ink-soft)">{e.published ? 'published' : 'draft'}</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))
     ) : (
       <p class="mt-6 text-(--color-ink-soft)">No exhibitions yet.</p>
     )

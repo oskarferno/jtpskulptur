@@ -1,69 +1,157 @@
 ---
+import { Image } from 'astro:assets';
 import Layout from '../layouts/Layout.astro';
 import { getSupabaseClient } from '../lib/supabase';
-import { publicMediaUrl } from '../lib/media';
+import { publicMediaUrl, scaledHeight } from '../lib/media';
 
 const supabase = getSupabaseClient();
 
-const { data: settings } = await supabase
-  .from('site_settings')
-  .select('seo_default_title, seo_default_description')
-  .single();
+// None of these five depend on each other's result — this used to be five
+// sequential awaits, each one waiting for the last to finish before the
+// next round-trip even started. Measured live: that waterfall alone cost
+// ~380ms of TTFB compared to a page with only one query (97ms vs 479ms).
+// Promise.all collapses it into a single wave, matching the pattern
+// Layout.astro already uses for its own Nav/Footer queries.
+const [
+  { data: settings },
+  { data: about },
+  { data: exhibitionRows },
+  { data: postRows },
+  { data: artworks },
+] = await Promise.all([
+  supabase.from('site_settings').select('seo_default_title, seo_default_description').single(),
+  supabase.from('about_content').select('artist_name, short_bio, homepage_bio').single(),
+  supabase
+    .from('exhibitions')
+    .select('id, title, venue, city, start_date')
+    .eq('published', true)
+    .order('start_date', { ascending: false })
+    .limit(3),
+  supabase
+    .from('posts')
+    .select('id, slug, title, excerpt, published_at, cover:cover_media_id (storage_path, bucket)')
+    .eq('published', true)
+    .order('published_at', { ascending: false })
+    .limit(3),
+  supabase
+    .from('artworks')
+    .select(
+      `id, slug, title, featured, featured_display_order, is_homepage_hero, hero_focal_x, hero_focal_y,
+       media:primary_image_id (storage_path, bucket, alt_text, width, height),
+       hero_media:hero_image_id (storage_path, bucket, alt_text, width, height)`
+    )
+    .eq('published', true)
+    .order('display_order')
+    .order('created_at')
+    .order('id'),
+]);
 
-const { data: about } = await supabase.from('about_content').select('short_bio, full_bio').single();
-
-const { data: exhibitionRows } = await supabase
-  .from('exhibitions')
-  .select('id, title, venue, city, start_date')
-  .eq('published', true)
-  .order('start_date', { ascending: false })
-  .limit(3);
-
-const { data: postRows } = await supabase
-  .from('posts')
-  .select('id, slug, title, excerpt, published_at, cover:cover_media_id (storage_path, bucket)')
-  .eq('published', true)
-  .order('published_at', { ascending: false })
-  .limit(3);
-
-const { data: artworks } = await supabase
-  .from('artworks')
-  .select('id, slug, title, featured, media:primary_image_id (storage_path, bucket, alt_text, width, height)')
-  .eq('published', true)
-  .order('display_order');
-
-const featured = (artworks ?? []).filter((a) => a.featured);
+// `artworks` arrives in Portfolio order. Featured Work has its own admin-set
+// order (featured_display_order, unset = last); Array.sort is stable, so ties
+// and unset values keep that Portfolio order and the result is deterministic.
+const featured = (artworks ?? [])
+  .filter((a) => a.featured)
+  .sort((a, b) => (a.featured_display_order ?? Infinity) - (b.featured_display_order ?? Infinity));
 const rest = (artworks ?? []).filter((a) => !a.featured);
-const hero = featured[0] ?? artworks?.[0];
+// The admin-selected hero (Admin → Portfolio → "Set as homepage hero") is
+// authoritative. If none is set — or the artwork that was hero got
+// unpublished/deleted since — fall back to the same implicit choice this
+// page used before that feature existed, so the homepage never ends up
+// with no hero at all just because nothing's been explicitly chosen yet.
+const hero = artworks?.find((a) => a.is_homepage_hero) ?? featured[0] ?? artworks?.[0];
+// A hero-specific image (Edit Artwork → "Homepage hero image") overrides
+// the artwork's normal primary image on the homepage only; every other use
+// of this artwork (Portfolio, Shop, its own detail page) still shows the
+// primary image untouched.
+const heroMedia = hero?.hero_media ?? hero?.media;
+// One admin-set focal point per hero (Edit Artwork → "Hero Focal Point") is
+// applied client-side, in the <script> below, as object-position — see that
+// script's own comment for why it's set via the CSSOM there rather than a
+// style prop here. The same percentage keeps the chosen point (normally the
+// sculpture's head) in frame across every aspect ratio this section renders
+// at, from a very wide short desktop crop to a tall narrow mobile one,
+// without separate per-breakpoint values. hero_focal_x/y are NOT NULL with
+// a default of (50, 0) at the database level, so this is always a valid
+// pair even for artwork that existed before this feature did.
+// Homepage "The Artist" text: its own field (Admin → About → Homepage Artist
+// Bio), independent of the About page's bio. Falls back only to short_bio —
+// never to the About bio — and the whole section is hidden if both are empty.
+const homepageBio = (about?.homepage_bio || about?.short_bio || '')
+  .split('\n')
+  .map((line) => line.trim())
+  .filter(Boolean);
 const featuredRest = featured.filter((a) => a.id !== hero?.id);
 const closing = rest[rest.length - 1] ?? featuredRest[featuredRest.length - 1];
 const selected = rest.filter((a) => a.id !== closing?.id).slice(0, 8);
 
 const title = settings?.seo_default_title ?? 'JTP Skulptur — Jens Wollinger';
 const description = settings?.seo_default_description ?? undefined;
-const ogImage = hero?.media ? publicMediaUrl(hero.media.bucket, hero.media.storage_path) : undefined;
+const ogImage = heroMedia ? publicMediaUrl(heroMedia.bucket, heroMedia.storage_path) : undefined;
 ---
 
 <Layout title={title} description={description} ogImage={ogImage}>
-  {hero?.media && (
-    <section class="relative">
-      <a href={`/portfolio/${hero.slug}`} class="group block">
-        <img
-          src={publicMediaUrl(hero.media.bucket, hero.media.storage_path)}
-          alt={hero.media.alt_text ?? hero.title}
-          width={hero.media.width ?? undefined}
-          height={hero.media.height ?? undefined}
-          class="aspect-[4/5] w-full object-cover object-[center_14%] sm:aspect-[5/4] sm:object-[center_16%] md:aspect-[3/2] lg:aspect-[16/9] lg:object-[center_28%]"
+  <h1 class="sr-only">{title}</h1>
+  {hero && heroMedia && (
+    // Full-bleed, edge-to-edge — no gutters, no max-width container, unlike
+    // every other section on this page. Height is set to exactly the
+    // viewport minus the (sticky, variable-height-by-breakpoint) header by
+    // the script below; the h-[100svh] class here is only a same-ballpark
+    // fallback for the instant before that script runs, so there's never a
+    // flash of a collapsed/zero-height hero.
+    <section id="home-hero" class="relative h-[100svh] w-full overflow-hidden">
+      <a href={`/portfolio/${hero.slug}`} class="block h-full w-full">
+        {/* object-position is applied by the script below, not a style prop
+            here — the site's CSP is style-src 'self' in production (no
+            'unsafe-inline'), which silently drops inline style="" attributes
+            entirely. Setting el.style.objectPosition from a <script> is a
+            script-src action, not style-src, so it isn't affected — the
+            same reason the hero-sizing height further down already works. */}
+        <Image
+          id="home-hero-image"
+          src={publicMediaUrl(heroMedia.bucket, heroMedia.storage_path)}
+          alt={heroMedia.alt_text ?? hero.title}
+          width={1920}
+          height={1080}
+          densities={[1, 2]}
+          quality={80}
+          class="h-full w-full object-cover"
+          data-focal-x={hero.hero_focal_x}
+          data-focal-y={hero.hero_focal_y}
           fetchpriority="high"
         />
       </a>
-      <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/35 via-40% to-transparent px-4 pt-20 pb-8 sm:px-8 sm:pb-12">
-        {about?.short_bio && (
-          <p class="max-w-md text-sm text-white/90 sm:text-base">{about.short_bio}</p>
-        )}
-      </div>
     </section>
   )}
+
+  <script>
+    // Sizes #home-hero to exactly fill the viewport below the sticky
+    // header, whatever that header's actual rendered height is at the
+    // current breakpoint — measured rather than hardcoded per breakpoint,
+    // so it stays correct if the header's own height ever changes (logo
+    // size, nav wrapping, etc.) without this needing to be touched too.
+    const hero = document.getElementById('home-hero');
+    const header = document.getElementById('site-header');
+
+    if (hero && header) {
+      const sizeHero = () => {
+        hero.style.height = `calc(100svh - ${header.getBoundingClientRect().height}px)`;
+      };
+      sizeHero();
+      window.addEventListener('resize', sizeHero);
+    }
+
+    // Applies the hero's admin-set focal point (see hero_focal_x/y on
+    // artworks) via the CSSOM rather than a style="" attribute, since the
+    // site's production CSP (style-src 'self', no 'unsafe-inline') silently
+    // drops inline style attributes — this runs as a script-src action
+    // instead, which is unaffected.
+    const heroImage = document.getElementById('home-hero-image') as HTMLImageElement | null;
+    if (heroImage) {
+      const x = heroImage.dataset.focalX ?? '50';
+      const y = heroImage.dataset.focalY ?? '0';
+      heroImage.style.objectPosition = `${x}% ${y}%`;
+    }
+  </script>
 
   {featuredRest.length > 0 && (
     <section class="mx-auto max-w-(--measure-full) px-4 py-20 sm:px-8 sm:py-28">
@@ -73,11 +161,13 @@ const ogImage = hero?.media ? publicMediaUrl(hero.media.bucket, hero.media.stora
           const spanClass = i === 0 ? 'sm:col-span-8' : i === 1 ? 'sm:col-span-4' : 'sm:col-span-6';
           return artwork.media && (
             <a href={`/portfolio/${artwork.slug}`} class={`group reveal block ${spanClass}`}>
-              <img
+              <Image
                 src={publicMediaUrl(artwork.media.bucket, artwork.media.storage_path)}
                 alt={artwork.media.alt_text ?? artwork.title}
-                width={artwork.media.width ?? undefined}
-                height={artwork.media.height ?? undefined}
+                width={900}
+                height={scaledHeight(900, artwork.media)}
+                densities={[1, 1.5, 2]}
+                quality={80}
                 loading="lazy"
                 class="aspect-[4/5] w-full bg-(--color-paper-raised) object-cover object-top transition-transform duration-700 group-hover:scale-[1.015]"
               />
@@ -89,13 +179,14 @@ const ogImage = hero?.media ? publicMediaUrl(hero.media.bucket, hero.media.stora
     </section>
   )}
 
-  {(about?.full_bio || about?.short_bio) && (
+  {homepageBio.length > 0 && (
     <section class="border-t border-(--color-line) px-4 py-20 sm:px-8 sm:py-28">
       <div class="mx-auto max-w-(--measure-content)">
         <p class="caption">The Artist</p>
-        <p class="font-display mt-4 text-2xl leading-snug sm:text-3xl">
-          {(about.full_bio ?? about.short_bio ?? '').split('\n')[0]}
-        </p>
+        {about?.artist_name && <h2 class="font-display mt-4 text-2xl sm:text-3xl">{about.artist_name}</h2>}
+        {homepageBio.map((paragraph) => (
+          <p class="mt-6 text-lg leading-relaxed text-(--color-ink-soft) sm:text-xl">{paragraph}</p>
+        ))}
         <a href="/about" class="mt-6 inline-block text-sm tracking-[0.04em] text-(--color-clay) hover:underline">
           Read more &rarr;
         </a>
@@ -109,18 +200,20 @@ const ogImage = hero?.media ? publicMediaUrl(hero.media.bucket, hero.media.stora
       <div class="mt-6 grid grid-cols-2 gap-3 sm:mt-8 sm:grid-cols-4 sm:gap-6">
         {selected.map((artwork) => artwork.media && (
           <a href={`/portfolio/${artwork.slug}`} class="group reveal block">
-            <img
+            <Image
               src={publicMediaUrl(artwork.media.bucket, artwork.media.storage_path)}
               alt={artwork.media.alt_text ?? artwork.title}
-              width={artwork.media.width ?? undefined}
-              height={artwork.media.height ?? undefined}
+              width={500}
+              height={500}
+              densities={[1, 1.5, 2]}
+              quality={80}
               loading="lazy"
               class="aspect-square w-full bg-(--color-paper-raised) object-cover object-top transition-transform duration-700 group-hover:scale-[1.015]"
             />
           </a>
         ))}
       </div>
-      <a href="/" class="mt-10 inline-block text-sm tracking-[0.04em] text-(--color-clay) hover:underline">
+      <a href="/portfolio" class="mt-10 inline-block text-sm tracking-[0.04em] text-(--color-clay) hover:underline">
         View full portfolio &rarr;
       </a>
     </section>
@@ -153,9 +246,13 @@ const ogImage = hero?.media ? publicMediaUrl(hero.media.bucket, hero.media.stora
         {postRows.map((post) => (
           <a href={`/journal/${post.slug}`} class="group block">
             {post.cover && (
-              <img
+              <Image
                 src={publicMediaUrl(post.cover.bucket, post.cover.storage_path)}
                 alt=""
+                width={500}
+                height={375}
+                densities={[1, 1.5, 2]}
+                quality={80}
                 loading="lazy"
                 class="aspect-[4/3] w-full bg-(--color-paper-raised) object-cover object-top"
               />
@@ -170,9 +267,13 @@ const ogImage = hero?.media ? publicMediaUrl(hero.media.bucket, hero.media.stora
 
   {closing?.media && (
     <section class="relative border-t border-(--color-line) bg-black lg:flex lg:h-[42rem] lg:flex-row-reverse lg:items-stretch">
-      <img
+      <Image
         src={publicMediaUrl(closing.media.bucket, closing.media.storage_path)}
         alt={closing.media.alt_text ?? closing.title}
+        width={1100}
+        height={scaledHeight(1100, closing.media)}
+        densities={[1, 1.5, 2]}
+        quality={80}
         loading="lazy"
         class="h-[60svh] w-full object-cover object-top sm:h-[70svh] lg:h-full lg:w-auto lg:min-w-0 lg:flex-1 lg:object-contain lg:object-center"
       />

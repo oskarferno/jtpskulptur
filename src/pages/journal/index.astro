@@ -1,4 +1,5 @@
 ---
+import { Image } from 'astro:assets';
 import Layout from '../../layouts/Layout.astro';
 import { getSupabaseClient } from '../../lib/supabase';
 import { publicMediaUrl } from '../../lib/media';
@@ -13,9 +14,10 @@ const { data: posts } = await supabase
 ---
 
 <Layout title="Journal — JTP Skulptur" description="Notes on process, material, and the making of sculpture in stoneware clay, from the studio of Jens Wollinger.">
-  <header class="mx-auto max-w-(--measure-content) px-4 pt-14 sm:px-8 sm:pt-20">
-    <p class="caption">Journal</p>
-    <h1 class="font-display mt-3 text-3xl sm:text-5xl">Journal</h1>
+  {/* No eyebrow — it would just repeat "Journal" a second time; Portfolio and
+      Shop use the same bare-h1 pattern for the same reason. */}
+  <header class="mx-auto max-w-(--measure-full) px-4 pt-14 sm:px-8 sm:pt-20">
+    <h1 class="font-display text-3xl sm:text-5xl">Journal</h1>
   </header>
 
   <div class="mx-auto max-w-(--measure-wide) px-4 py-10 sm:px-8 sm:py-14">
@@ -24,9 +26,13 @@ const { data: posts } = await supabase
         {posts.map((post) => (
           <a href={`/journal/${post.slug}`} class="group block">
             {post.cover && (
-              <img
+              <Image
                 src={publicMediaUrl(post.cover.bucket, post.cover.storage_path)}
                 alt={post.cover.alt_text ?? ''}
+                width={600}
+                height={450}
+                densities={[1, 1.5, 2]}
+                quality={80}
                 loading="lazy"
                 class="aspect-[4/3] w-full bg-(--color-paper-raised) object-cover object-top"
               />

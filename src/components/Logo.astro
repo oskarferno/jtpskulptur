@@ -1,0 +1,23 @@
+---
+// Single source of markup for the JTP wordmark — header and footer both
+// render this instead of duplicating the <img>, so they can never end up
+// with different src/alt/dimensions. Actual rendered size is controlled
+// entirely by the shared `.jtp-logo` CSS rule (see global.css), which is
+// what keeps header and footer in lockstep at every breakpoint; this
+// component only ever adds/removes the homepage link around it.
+interface Props {
+  linked?: boolean;
+}
+
+const { linked = true } = Astro.props;
+---
+
+{
+  linked ? (
+    <a href="/" class="flex-shrink-0">
+      <img src="/jtp-skulptur-logo.png" alt="JTP Skulptur" width="2021" height="326" class="jtp-logo" />
+    </a>
+  ) : (
+    <img src="/jtp-skulptur-logo.png" alt="JTP Skulptur" width="2021" height="326" class="jtp-logo" />
+  )
+}

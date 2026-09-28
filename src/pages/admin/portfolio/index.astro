@@ -1,13 +1,26 @@
 ---
 import AdminLayout from '../../../layouts/AdminLayout.astro';
-import { publicMediaUrl } from '../../../lib/media';
+import ArtworkOrderRow from '../../../components/admin/ArtworkOrderRow.astro';
 
 const supabase = Astro.locals.supabase!;
 
+// Portfolio order = display_order (created_at/id only break ties, exactly as
+// on the public site, so this list matches what visitors see).
 const { data: artworks } = await supabase
   .from('artworks')
-  .select('id, title, slug, year, published, featured, display_order, primary_media:primary_image_id (storage_path, bucket)')
-  .order('display_order');
+  .select(
+    `id, title, slug, year, published, featured, display_order, featured_display_order, availability, inventory, is_homepage_hero,
+     primary_media:primary_image_id (storage_path, bucket)`
+  )
+  .order('display_order')
+  .order('created_at')
+  .order('id');
+
+// Featured Work order = featured_display_order (unset = last). Array.sort is
+// stable, so ties keep the Portfolio order above.
+const featured = (artworks ?? [])
+  .filter((a) => a.featured)
+  .sort((a, b) => (a.featured_display_order ?? Infinity) - (b.featured_display_order ?? Infinity));
 ---
 
 <AdminLayout title="Portfolio">
@@ -21,25 +34,83 @@ const { data: artworks } = await supabase
 
   {
     artworks && artworks.length > 0 ? (
-      <ul class="mt-6 divide-y divide-(--color-line) border border-(--color-line)">
-        {artworks.map((a) => (
-          <li>
-            <a href={`/admin/portfolio/${a.id}`} class="flex items-center gap-4 px-4 py-3 hover:bg-(--color-paper-raised)">
-              {a.primary_media && (
-                <img src={publicMediaUrl(a.primary_media.bucket, a.primary_media.storage_path)} alt=""
-                  class="h-12 w-12 flex-shrink-0 object-cover" />
-              )}
-              <span class="flex-1">{a.title}</span>
-              <span class="text-sm text-(--color-ink-soft)">
-                {a.published ? 'published' : 'draft'}
-                {a.featured ? ' · featured' : ''}
-              </span>
-            </a>
-          </li>
-        ))}
-      </ul>
+      <>
+        <div class="mt-6">
+          <h2 class="text-sm uppercase tracking-[0.08em] text-(--color-ink-soft)">Portfolio order</h2>
+          <p class="mt-1 text-xs text-(--color-ink-faint)">
+            The order artworks appear on the Portfolio page. Drag by the handle (or use the arrows); it saves automatically.
+            Drafts are listed too and take their place once published. New and newly published artworks are added at the end.
+          </p>
+          <p id="portfolio-order-status" role="status" class="mt-1 min-h-4 text-xs text-(--color-clay)"></p>
+        </div>
+        <ul id="portfolio-order" class="mt-2 divide-y divide-(--color-line) border border-(--color-line)">
+          {artworks.map((a) => <ArtworkOrderRow artwork={a} variant="portfolio" />)}
+        </ul>
+
+        <div class="mt-12">
+          <h2 class="text-sm uppercase tracking-[0.08em] text-(--color-ink-soft)">Featured order</h2>
+          <p class="mt-1 text-xs text-(--color-ink-faint)">
+            The order of “Featured Work” on the homepage — separate from the Portfolio order above. The homepage hero
+            is shown at the top of the homepage instead of in this grid. Newly featured artworks are added at the end.
+          </p>
+          <p id="featured-order-status" role="status" class="mt-1 min-h-4 text-xs text-(--color-clay)"></p>
+        </div>
+        {featured.length > 0 ? (
+          <ul id="featured-order" class="mt-2 divide-y divide-(--color-line) border border-(--color-line)">
+            {featured.map((a) => <ArtworkOrderRow artwork={a} variant="featured" />)}
+          </ul>
+        ) : (
+          <p class="mt-2 text-sm text-(--color-ink-soft)">
+            No featured artworks. Tick “Featured” on an artwork to add it here.
+          </p>
+        )}
+      </>
     ) : (
       <p class="mt-6 text-(--color-ink-soft)">No artworks yet.</p>
     )
   }
+
+  <script>
+    import { initSortable } from '../../../lib/admin-sortable';
+
+    async function saveOrder(kind: 'portfolio' | 'featured', ids: string[]) {
+      const response = await fetch('/api/admin/artworks/reorder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kind, ids }),
+      });
+      if (!response.ok) {
+        const result = (await response.json().catch(() => ({}))) as { error?: string };
+        throw new Error(result.error ?? 'Could not save the new order.');
+      }
+    }
+
+    for (const kind of ['portfolio', 'featured'] as const) {
+      const list = document.getElementById(`${kind}-order`);
+      if (list) {
+        initSortable(list, {
+          onChange: (ids) => saveOrder(kind, ids),
+          status: document.getElementById(`${kind}-order-status`),
+        });
+      }
+    }
+
+    document.querySelectorAll<HTMLButtonElement>('[data-set-hero]').forEach((button) => {
+      button.addEventListener('click', async (event) => {
+        event.preventDefault();
+        const artworkId = button.dataset.artworkId;
+        const originalText = button.textContent;
+        button.disabled = true;
+        button.textContent = 'Setting…';
+        const response = await fetch(`/api/admin/artworks/${artworkId}/hero`, { method: 'POST' });
+        if (response.ok) {
+          window.location.reload();
+        } else {
+          button.disabled = false;
+          button.textContent = originalText;
+          alert('Could not set as homepage hero.');
+        }
+      });
+    });
+  </script>
 </AdminLayout>

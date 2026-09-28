@@ -1,0 +1,354 @@
+---
+// Shared by /admin/newsletter/new.astro (no campaign yet) and
+// /admin/newsletter/[id].astro (editing a draft) — the two only differ in
+// whether `campaign` is null and whether Save Draft POSTs a new row or
+// PATCHes an existing one. Sent campaigns never render this component; see
+// [id].astro's read-only branch instead.
+import { publicMediaUrl } from '../../lib/media';
+import { getEnv } from '../../lib/env';
+
+interface CampaignProps {
+  id: string;
+  subject: string;
+  preview_text: string | null;
+  content_markdown: string;
+  cta_text: string | null;
+  cta_url: string | null;
+  primary_media: { id: string; storage_path: string; bucket: 'artwork-images' | 'site-media' | 'documents' | 'product-images' } | null;
+  updated_at: string;
+}
+
+interface Props {
+  campaign: CampaignProps | null;
+  confirmedSubscriberCount: number;
+}
+
+const { campaign, confirmedSubscriberCount } = Astro.props;
+const { PUBLIC_SUPABASE_URL } = getEnv();
+
+const imageUrl = campaign?.primary_media ? publicMediaUrl(campaign.primary_media.bucket, campaign.primary_media.storage_path) : '';
+---
+
+<div
+  id="newsletter-composer"
+  data-campaign-id={campaign?.id ?? ''}
+  data-supabase-url={PUBLIC_SUPABASE_URL}
+  data-confirmed-count={confirmedSubscriberCount}
+  data-image-url={imageUrl}
+>
+  <div class="flex items-center gap-3">
+    <span class="border border-(--color-ink-soft) px-2 py-0.5 text-xs uppercase tracking-[0.04em] text-(--color-ink-soft)">
+      Draft
+    </span>
+    {campaign && (
+      <span class="text-xs text-(--color-ink-faint)">
+        Last saved {new Date(campaign.updated_at).toLocaleString('en-GB')}
+      </span>
+    )}
+  </div>
+
+  <form id="composer-form" class="mt-6 max-w-2xl space-y-6">
+    <div>
+      <label for="subject" class="block text-sm text-(--color-ink-soft)">Subject</label>
+      <input id="subject" name="subject" type="text" required maxlength="200" value={campaign?.subject ?? ''}
+        placeholder="New work from the studio"
+        class="mt-1 w-full border border-(--color-line) bg-transparent px-3 py-2 focus:border-(--color-clay) focus:outline-none" />
+    </div>
+
+    <div>
+      <label for="preview_text" class="block text-sm text-(--color-ink-soft)">Preview text <span class="text-(--color-ink-faint)">(optional)</span></label>
+      <input id="preview_text" name="preview_text" type="text" maxlength="300" value={campaign?.preview_text ?? ''}
+        placeholder="Shown in the inbox next to the subject — optional"
+        class="mt-1 w-full border border-(--color-line) bg-transparent px-3 py-2 focus:border-(--color-clay) focus:outline-none" />
+    </div>
+
+    <div>
+      <p class="text-sm text-(--color-ink-soft)">Image <span class="text-(--color-ink-faint)">(optional)</span></p>
+      <img id="image-preview" src={imageUrl} alt="" class:list={["mt-2 aspect-[16/9] w-full max-w-sm border border-(--color-line) object-cover", { hidden: !imageUrl }]} />
+      <div class="mt-2 flex flex-wrap items-center gap-3">
+        <input type="file" id="image-upload" accept="image/jpeg,image/png,image/webp" class="block text-sm" />
+        <button type="button" id="remove-image" class:list={["text-sm text-red-700 hover:underline", { hidden: !imageUrl }]}>
+          Remove image
+        </button>
+      </div>
+      <input type="hidden" id="primary_image_id" name="primary_image_id" value={campaign?.primary_media?.id ?? ''} />
+      <p id="upload-status" class="mt-1 text-xs text-(--color-ink-soft)"></p>
+    </div>
+
+    <div>
+      <label for="content_markdown" class="block text-sm text-(--color-ink-soft)">Content</label>
+      <textarea id="content_markdown" name="content_markdown" rows="16"
+        class="mt-1 w-full border border-(--color-line) bg-transparent px-3 py-2 focus:border-(--color-clay) focus:outline-none">{campaign?.content_markdown ?? ''}</textarea>
+      <p class="caption mt-1">Supports paragraphs, # headings, **bold**, _italic_, [links](url), and lists.</p>
+    </div>
+
+    <fieldset class="border border-(--color-line) p-4">
+      <legend class="px-1 text-sm text-(--color-ink-soft)">Call to action (optional)</legend>
+      <div class="mt-2 grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div>
+          <label for="cta_text" class="block text-sm text-(--color-ink-soft)">CTA text</label>
+          <input id="cta_text" name="cta_text" type="text" maxlength="100" value={campaign?.cta_text ?? ''}
+            placeholder="View the new sculptures"
+            class="mt-1 w-full border border-(--color-line) bg-transparent px-3 py-2 focus:border-(--color-clay) focus:outline-none" />
+        </div>
+        <div>
+          <label for="cta_url" class="block text-sm text-(--color-ink-soft)">CTA URL</label>
+          <input id="cta_url" name="cta_url" type="url" value={campaign?.cta_url ?? ''}
+            placeholder="https://jtpskulptur.com/portfolio"
+            class="mt-1 w-full border border-(--color-line) bg-transparent px-3 py-2 focus:border-(--color-clay) focus:outline-none" />
+        </div>
+      </div>
+      <p class="mt-2 text-xs text-(--color-ink-soft)">Both fields are needed for the button to appear in the email.</p>
+    </fieldset>
+
+    <div class="flex flex-wrap items-center gap-3 border-t border-(--color-line) pt-6">
+      <button type="submit" id="save-draft"
+        class="border border-(--color-ink) px-6 py-2 text-sm tracking-wide uppercase hover:bg-(--color-ink) hover:text-(--color-paper)">
+        Save Draft
+      </button>
+      <button type="button" id="preview-btn"
+        class="border border-(--color-line) px-4 py-2 text-sm uppercase tracking-[0.04em] hover:border-(--color-clay) hover:text-(--color-clay)">
+        Preview
+      </button>
+    </div>
+    <p id="form-status" role="status" class="text-sm"></p>
+  </form>
+
+  <div id="preview-panel" class="mt-10 hidden max-w-2xl border-t border-(--color-line) pt-6">
+    <div class="flex items-center justify-between">
+      <h2 class="font-display text-lg">Preview</h2>
+      <div class="flex gap-2 text-xs">
+        <button type="button" id="preview-desktop" data-active="true"
+          class="border border-(--color-ink) px-3 py-1 uppercase tracking-[0.04em]">Desktop</button>
+        <button type="button" id="preview-mobile" data-active="false"
+          class="border border-(--color-line) px-3 py-1 uppercase tracking-[0.04em] text-(--color-ink-soft)">Mobile</button>
+      </div>
+    </div>
+    <div class="mt-4 flex justify-center overflow-x-auto bg-(--color-paper-raised) p-4">
+      <iframe id="preview-frame" title="Email preview" class="border border-(--color-line) bg-white" style="width:min(600px, 100%);height:720px;"></iframe>
+    </div>
+  </div>
+
+  <div class="mt-10 max-w-2xl border-t border-(--color-line) pt-6" id="send-test-section">
+    <p class="text-sm text-(--color-ink-soft)">
+      {campaign ? 'Send a test to yourself or a colleague before sending to subscribers.' : 'Save this as a draft first to unlock Send Test.'}
+    </p>
+    <div class="mt-2 flex flex-wrap items-center gap-3">
+      <input type="email" id="test-email" placeholder="you@example.com" disabled={!campaign}
+        class="border border-(--color-line) bg-transparent px-3 py-2 text-sm focus:border-(--color-clay) focus:outline-none disabled:opacity-40" />
+      <button type="button" id="send-test-btn" disabled={!campaign}
+        class="border border-(--color-line) px-4 py-2 text-sm uppercase tracking-[0.04em] hover:border-(--color-clay) hover:text-(--color-clay) disabled:pointer-events-none disabled:opacity-40">
+        Send Test
+      </button>
+    </div>
+    <p id="test-status" role="status" class="mt-1 text-sm"></p>
+  </div>
+
+  <div class="mt-10 max-w-2xl border-t border-(--color-line) pt-6">
+    <button type="button" id="send-newsletter-btn" disabled={!campaign}
+      class="border border-red-700 px-6 py-2 text-sm tracking-wide uppercase text-red-700 hover:bg-red-700 hover:text-(--color-paper) disabled:pointer-events-none disabled:opacity-40">
+      Send Newsletter
+    </button>
+    {!campaign && <p class="mt-1 text-sm text-(--color-ink-soft)">Save this as a draft first to unlock sending.</p>}
+
+    <div id="send-confirm" class="mt-4 hidden max-w-md space-y-2 border border-red-700 p-4 text-sm">
+      <p>Subject: <strong id="confirm-subject"></strong></p>
+      <p>Recipients: <strong id="confirm-count">{confirmedSubscriberCount}</strong> confirmed subscribers</p>
+      <p>This will mark the newsletter as <strong>Sent</strong> — it cannot be undone or resent.</p>
+      <div class="mt-3 flex items-center gap-4">
+        <button type="button" id="confirm-send"
+          class="border border-red-700 bg-red-700 px-4 py-2 text-sm uppercase tracking-[0.04em] text-(--color-paper) hover:bg-red-900">
+          Yes — send now
+        </button>
+        <button type="button" id="cancel-send" class="text-sm text-(--color-ink-soft) hover:text-(--color-clay)">Cancel</button>
+      </div>
+    </div>
+    <p id="send-status" role="status" class="mt-2 text-sm"></p>
+  </div>
+</div>
+
+<script>
+  const root = document.getElementById('newsletter-composer')!;
+  let campaignId = root.dataset.campaignId || '';
+  const supabaseUrl = root.dataset.supabaseUrl!;
+  let currentImageUrl = root.dataset.imageUrl || '';
+
+  const form = document.getElementById('composer-form') as HTMLFormElement;
+  const formStatus = document.getElementById('form-status')!;
+  const subjectInput = document.getElementById('subject') as HTMLInputElement;
+  const previewTextInput = document.getElementById('preview_text') as HTMLInputElement;
+  const contentInput = document.getElementById('content_markdown') as HTMLTextAreaElement;
+  const ctaTextInput = document.getElementById('cta_text') as HTMLInputElement;
+  const ctaUrlInput = document.getElementById('cta_url') as HTMLInputElement;
+  const primaryImageIdInput = document.getElementById('primary_image_id') as HTMLInputElement;
+
+  const imageUpload = document.getElementById('image-upload') as HTMLInputElement;
+  const imagePreview = document.getElementById('image-preview') as HTMLImageElement;
+  const removeImageBtn = document.getElementById('remove-image') as HTMLButtonElement;
+  const uploadStatus = document.getElementById('upload-status')!;
+
+  const previewBtn = document.getElementById('preview-btn') as HTMLButtonElement;
+  const previewPanel = document.getElementById('preview-panel')!;
+  const previewFrame = document.getElementById('preview-frame') as HTMLIFrameElement;
+  const previewDesktop = document.getElementById('preview-desktop') as HTMLButtonElement;
+  const previewMobile = document.getElementById('preview-mobile') as HTMLButtonElement;
+
+  const testEmailInput = document.getElementById('test-email') as HTMLInputElement;
+  const sendTestBtn = document.getElementById('send-test-btn') as HTMLButtonElement;
+  const testStatus = document.getElementById('test-status')!;
+
+  const sendNewsletterBtn = document.getElementById('send-newsletter-btn') as HTMLButtonElement;
+  const sendConfirm = document.getElementById('send-confirm')!;
+  const confirmSubject = document.getElementById('confirm-subject')!;
+  const confirmSendBtn = document.getElementById('confirm-send') as HTMLButtonElement;
+  const cancelSendBtn = document.getElementById('cancel-send') as HTMLButtonElement;
+  const sendStatus = document.getElementById('send-status')!;
+
+  // Image upload — held client-side until the next Save Draft, same as
+  // every other field here. Reuses the site's one media store (bucket
+  // "site-media"), not a newsletter-specific one.
+  imageUpload.addEventListener('change', async () => {
+    const file = imageUpload.files?.[0];
+    if (!file) return;
+    uploadStatus.textContent = 'Uploading…';
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('bucket', 'site-media');
+    const res = await fetch('/api/admin/media', { method: 'POST', body: formData });
+    const result = (await res.json().catch(() => ({}))) as { media?: { id: string; storage_path: string }; error?: string };
+    if (!res.ok || !result.media) {
+      uploadStatus.textContent = result.error ?? 'Upload failed.';
+      return;
+    }
+    primaryImageIdInput.value = result.media.id;
+    currentImageUrl = `${supabaseUrl}/storage/v1/object/public/site-media/${result.media.storage_path}`;
+    imagePreview.src = currentImageUrl;
+    imagePreview.classList.remove('hidden');
+    removeImageBtn.classList.remove('hidden');
+    uploadStatus.textContent = 'Uploaded — remember to Save Draft.';
+  });
+
+  removeImageBtn.addEventListener('click', () => {
+    primaryImageIdInput.value = '';
+    currentImageUrl = '';
+    imagePreview.classList.add('hidden');
+    removeImageBtn.classList.add('hidden');
+    imageUpload.value = '';
+    uploadStatus.textContent = 'Image removed — remember to Save Draft.';
+  });
+
+  function composerPayload() {
+    return {
+      subject: subjectInput.value,
+      preview_text: previewTextInput.value,
+      content_markdown: contentInput.value,
+      cta_text: ctaTextInput.value,
+      cta_url: ctaUrlInput.value,
+      primary_image_id: primaryImageIdInput.value || null,
+    };
+  }
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    formStatus.textContent = 'Saving…';
+    const isNew = !campaignId;
+    const res = await fetch(isNew ? '/api/admin/newsletter' : `/api/admin/newsletter/${campaignId}`, {
+      method: isNew ? 'POST' : 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(composerPayload()),
+    });
+    const result = (await res.json().catch(() => ({}))) as { id?: string; error?: string };
+    if (!res.ok) {
+      formStatus.textContent = result.error ?? 'Something went wrong.';
+      return;
+    }
+    if (isNew && result.id) {
+      window.location.href = `/admin/newsletter/${result.id}`;
+      return;
+    }
+    formStatus.textContent = 'Saved.';
+  });
+
+  // Preview renders exactly what a real send would produce, from whatever's
+  // currently typed — it doesn't require Save Draft first.
+  previewBtn.addEventListener('click', async () => {
+    previewBtn.disabled = true;
+    const res = await fetch('/api/admin/newsletter/render', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        subject: subjectInput.value,
+        previewText: previewTextInput.value,
+        imageUrl: currentImageUrl || null,
+        contentMarkdown: contentInput.value,
+        ctaText: ctaTextInput.value,
+        ctaUrl: ctaUrlInput.value,
+      }),
+    });
+    previewBtn.disabled = false;
+    const result = (await res.json().catch(() => ({}))) as { html?: string; error?: string };
+    if (!res.ok || !result.html) {
+      formStatus.textContent = result.error ?? 'Could not build preview.';
+      return;
+    }
+    previewFrame.srcdoc = result.html;
+    previewPanel.classList.remove('hidden');
+    previewPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+
+  function setPreviewWidth(px: number, active: HTMLButtonElement, inactive: HTMLButtonElement) {
+    previewFrame.style.width = `min(${px}px, 100%)`;
+    active.dataset.active = 'true';
+    active.className = 'border border-(--color-ink) px-3 py-1 uppercase tracking-[0.04em]';
+    inactive.dataset.active = 'false';
+    inactive.className = 'border border-(--color-line) px-3 py-1 uppercase tracking-[0.04em] text-(--color-ink-soft)';
+  }
+  previewDesktop.addEventListener('click', () => setPreviewWidth(600, previewDesktop, previewMobile));
+  previewMobile.addEventListener('click', () => setPreviewWidth(375, previewMobile, previewDesktop));
+
+  sendTestBtn.addEventListener('click', async () => {
+    if (!campaignId) return;
+    if (!testEmailInput.value) {
+      testStatus.textContent = 'Enter a test recipient email.';
+      return;
+    }
+    sendTestBtn.disabled = true;
+    testStatus.textContent = 'Sending test…';
+    const res = await fetch(`/api/admin/newsletter/${campaignId}/send-test`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ testEmail: testEmailInput.value }),
+    });
+    const result = (await res.json().catch(() => ({}))) as { error?: string };
+    sendTestBtn.disabled = false;
+    testStatus.textContent = res.ok ? 'Test sent.' : (result.error ?? 'Failed to send test.');
+  });
+
+  sendNewsletterBtn.addEventListener('click', () => {
+    if (!campaignId) return;
+    confirmSubject.textContent = subjectInput.value || '(no subject)';
+    sendConfirm.classList.remove('hidden');
+    sendConfirm.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  });
+
+  cancelSendBtn.addEventListener('click', () => {
+    sendConfirm.classList.add('hidden');
+  });
+
+  confirmSendBtn.addEventListener('click', async () => {
+    if (!campaignId) return;
+    confirmSendBtn.disabled = true;
+    cancelSendBtn.disabled = true;
+    sendStatus.textContent = 'Sending…';
+    const res = await fetch(`/api/admin/newsletter/${campaignId}/send`, { method: 'POST' });
+    const result = (await res.json().catch(() => ({}))) as { sent?: number; total?: number; error?: string };
+    if (res.ok) {
+      sendStatus.textContent = `Sent to ${result.sent} of ${result.total} confirmed subscribers.`;
+      window.location.reload();
+    } else {
+      sendStatus.textContent = result.error ?? 'Sending failed.';
+      confirmSendBtn.disabled = false;
+      cancelSendBtn.disabled = false;
+    }
+  });
+</script>

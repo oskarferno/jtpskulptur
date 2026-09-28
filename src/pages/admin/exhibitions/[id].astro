@@ -1,5 +1,6 @@
 ---
 import AdminLayout from '../../../layouts/AdminLayout.astro';
+import ImagePicker from '../../../components/admin/ImagePicker.astro';
 import { publicMediaUrl } from '../../../lib/media';
 
 const supabase = Astro.locals.supabase!;
@@ -22,19 +23,17 @@ const { data: exhibition } = await supabase
 if (!exhibition) {
   return Astro.redirect('/admin/exhibitions');
 }
+
+const coverImageUrl = exhibition.cover_media
+  ? publicMediaUrl(exhibition.cover_media.bucket, exhibition.cover_media.storage_path)
+  : null;
 ---
 
 <AdminLayout title={exhibition.title}>
-  <form id="exhibition-form" class="max-w-xl space-y-4" data-exhibition-id={exhibition.id}>
-    {exhibition.cover_media && (
-      <img
-        src={publicMediaUrl(exhibition.cover_media.bucket, exhibition.cover_media.storage_path)}
-        alt=""
-        class="aspect-square w-40 border border-(--color-line) object-cover"
-      />
-    )}
+  <form id="exhibition-form" class="max-w-xl space-y-4" data-exhibition-id={exhibition.id} data-cover-url={coverImageUrl ?? ''}>
+    <ImagePicker idPrefix="cover" label="Exhibition image" helpText="JPG, PNG, or WebP. Max 20MB. Shown on the Exhibitions page, this exhibition's own page, and the homepage." />
     <p class="text-xs text-(--color-ink-soft)">
-      Cover and gallery images are attached via the media library (see <a href="/admin/media" class="underline">Media</a>) and the exhibition_images table.
+      Additional gallery images beyond this cover can be attached via the media library (see <a href="/admin/media" class="underline">Media</a>) and the exhibition_images table.
     </p>
 
     <label class="flex items-center gap-2 text-sm">
@@ -137,16 +136,30 @@ if (!exhibition) {
   </form>
 
   <script>
+    import { initImagePicker, uploadImage } from '../../../lib/admin-image-picker';
+
     const form = document.getElementById('exhibition-form') as HTMLFormElement;
     const status = document.getElementById('form-status')!;
+    const submitButton = form.querySelector('button[type="submit"]') as HTMLButtonElement;
     const deleteButton = document.getElementById('delete-button');
     const exhibitionId = form.dataset.exhibitionId;
+
+    const coverPicker = initImagePicker(
+      {
+        fileInput: document.getElementById('cover-file') as HTMLInputElement,
+        preview: document.getElementById('cover-preview') as HTMLImageElement,
+        placeholder: document.getElementById('cover-placeholder')!,
+        removeButton: document.getElementById('cover-remove') as HTMLButtonElement,
+        status: document.getElementById('cover-status')!,
+      },
+      form.dataset.coverUrl || null
+    );
 
     form?.addEventListener('submit', async (event) => {
       event.preventDefault();
       const formData = new FormData(form);
 
-      const payload = {
+      const payload: Record<string, unknown> = {
         title: formData.get('title'),
         slug: formData.get('slug') || null,
         venue: formData.get('venue') || null,
@@ -163,6 +176,23 @@ if (!exhibition) {
         published: formData.get('published') === 'on',
       };
 
+      submitButton.disabled = true;
+      const title = formData.get('title') as string;
+      const coverState = coverPicker.getState();
+
+      try {
+        if (coverState.kind === 'file') {
+          status.textContent = 'Uploading image…';
+          payload.cover_media_id = await uploadImage(coverState.file, 'site-media', title);
+        } else if (coverState.kind === 'removed') {
+          payload.cover_media_id = null;
+        }
+      } catch (err) {
+        status.textContent = err instanceof Error ? err.message : 'Image upload failed.';
+        submitButton.disabled = false;
+        return;
+      }
+
       status.textContent = 'Saving…';
       const response = await fetch(`/api/admin/exhibitions/${exhibitionId}`, {
         method: 'PATCH',
@@ -171,6 +201,10 @@ if (!exhibition) {
       });
       const result = (await response.json().catch(() => ({}))) as { error?: string };
       status.textContent = response.ok ? 'Saved.' : (result.error ?? 'Something went wrong.');
+      submitButton.disabled = false;
+      if (response.ok) {
+        window.location.reload();
+      }
     });
 
     deleteButton?.addEventListener('click', async () => {

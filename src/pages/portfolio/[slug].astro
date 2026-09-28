@@ -1,7 +1,9 @@
 ---
+import { Image } from 'astro:assets';
 import Layout from '../../layouts/Layout.astro';
 import { getSupabaseClient } from '../../lib/supabase';
-import { publicMediaUrl } from '../../lib/media';
+import { publicMediaUrl, scaledHeight } from '../../lib/media';
+import { isPurchasable } from '../../lib/availability';
 
 const supabase = getSupabaseClient();
 const { slug } = Astro.params;
@@ -10,29 +12,43 @@ if (!slug) {
   return Astro.redirect('/404');
 }
 
-const { data: artwork } = await supabase
-  .from('artworks')
-  .select(
-    `id, title, year, description, material, dimensions, series, display_order, seo_title, seo_description,
-     primary_media:primary_image_id (storage_path, bucket, alt_text, width, height),
-     artwork_images (display_order, caption, media:media_id (storage_path, bucket, alt_text, width, height))`
-  )
-  .eq('slug', slug)
-  .eq('published', true)
-  .single();
+// The neighbors query doesn't depend on the artwork query's result — it
+// just needs to know which artwork we're currently on, which only matters
+// once both have already resolved (see currentIndex below) — so there's no
+// reason to make one wait for the other.
+const [{ data: artwork }, { data: neighbors }] = await Promise.all([
+  supabase
+    .from('artworks')
+    .select(
+      `id, title, year, description, material, dimensions, series, display_order, seo_title, seo_description,
+       availability, price, currency, inventory,
+       primary_media:primary_image_id (storage_path, bucket, alt_text, width, height),
+       artwork_images (display_order, caption, media:media_id (storage_path, bucket, alt_text, width, height))`
+    )
+    .eq('slug', slug)
+    .eq('published', true)
+    .single(),
+  supabase
+    .from('artworks')
+    .select('slug, title')
+    .eq('published', true)
+    .order('display_order')
+    .order('created_at')
+    .order('id'),
+]);
 
 if (!artwork) {
   return Astro.redirect('/404');
 }
 
-const { data: neighbors } = await supabase
-  .from('artworks')
-  .select('slug, title, display_order')
-  .eq('published', true)
-  .order('display_order');
+const status = artwork.availability;
+// Same shared rule as the Portfolio list card and Shop/Cart/Checkout — see
+// lib/availability.ts. published is always true here (query already filters
+// on it above).
+const purchasable = isPurchasable({ published: true, availability: artwork.availability, inventory: artwork.inventory });
 
 const ordered = neighbors ?? [];
-const currentIndex = ordered.findIndex((a) => a.display_order === artwork.display_order);
+const currentIndex = ordered.findIndex((a) => a.slug === slug);
 const prev = currentIndex > 0 ? ordered[currentIndex - 1] : ordered[ordered.length - 1];
 const next = currentIndex >= 0 && currentIndex < ordered.length - 1 ? ordered[currentIndex + 1] : ordered[0];
 
@@ -42,22 +58,43 @@ const description = artwork.seo_description ?? artwork.description ?? undefined;
 const ogImage = artwork.primary_media
   ? publicMediaUrl(artwork.primary_media.bucket, artwork.primary_media.storage_path)
   : undefined;
+
+const artworkJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'VisualArtwork',
+  name: artwork.title,
+  description: artwork.description ?? undefined,
+  image: ogImage,
+  dateCreated: artwork.year ? String(artwork.year) : undefined,
+  artMedium: artwork.material ?? undefined,
+  artworkSurface: artwork.dimensions ?? undefined,
+  creator: { '@type': 'Person', name: 'Jens Wollinger' },
+};
 ---
 
-<Layout title={title} description={description} ogImage={ogImage}>
+<Layout title={title} description={description} ogImage={ogImage} jsonLd={artworkJsonLd}>
   <article>
-    {artwork.primary_media && (
-      <img
-        src={publicMediaUrl(artwork.primary_media.bucket, artwork.primary_media.storage_path)}
-        alt={artwork.primary_media.alt_text ?? artwork.title}
-        width={artwork.primary_media.width ?? undefined}
-        height={artwork.primary_media.height ?? undefined}
-        fetchpriority="high"
-        class="max-h-[85svh] w-full bg-(--color-paper-raised) object-contain"
-      />
-    )}
+    {/* Side-by-side on laptop/desktop — an uncropped portrait photo alone in a
+        full-width band leaves most of the frame empty; pairing it with its
+        own label instead makes that space intentional, and echoes the same
+        image/caption rhythm as the homepage hero. Mobile/tablet just stack. */}
+    <div class="lg:flex lg:min-h-[38rem] lg:items-stretch xl:min-h-[44rem]">
+      {artwork.primary_media && (
+        <div class="flex justify-center bg-(--color-paper-raised) lg:w-[60%] lg:flex-shrink-0">
+          <Image
+            src={publicMediaUrl(artwork.primary_media.bucket, artwork.primary_media.storage_path)}
+            alt={artwork.primary_media.alt_text ?? artwork.title}
+            width={1600}
+            height={scaledHeight(1600, artwork.primary_media)}
+            densities={[1, 2]}
+            quality={80}
+            fetchpriority="high"
+            class="max-h-[85svh] w-auto max-w-full object-contain lg:h-full lg:max-h-none"
+          />
+        </div>
+      )}
 
-    <div class="mx-auto max-w-(--measure-content) px-4 py-12 sm:px-8 sm:py-16">
+    <div class="px-4 py-12 sm:px-8 sm:py-16 max-lg:mx-auto max-lg:max-w-(--measure-content) lg:flex lg:w-[40%] lg:flex-shrink-0 lg:flex-col lg:justify-center lg:px-12 lg:py-0 xl:px-16">
       <h1 class="font-display text-3xl sm:text-4xl">{artwork.title}</h1>
       {(artwork.year || artwork.material || artwork.dimensions) && (
         <p class="mt-2 text-(--color-ink-soft)">
@@ -66,17 +103,54 @@ const ogImage = artwork.primary_media
       )}
       {artwork.series && <p class="mt-1 text-sm text-(--color-ink-faint)">Series: {artwork.series}</p>}
       {artwork.description && <p class="mt-8 leading-relaxed">{artwork.description}</p>}
+
+      {purchasable && artwork.price && (
+        <div class="mt-10 border-t border-(--color-line) pt-8">
+          <p class="text-sm tracking-[0.04em] text-(--color-clay) uppercase">Available</p>
+          <p class="mt-1 text-lg text-(--color-ink-soft)">{artwork.price.toFixed(0)} {artwork.currency}</p>
+          <form id="add-to-cart-form" class="mt-4 flex items-center gap-4" data-artwork-id={artwork.id}>
+            <label class="sr-only" for="quantity">Quantity</label>
+            <select id="quantity" name="quantity" class="border border-(--color-line) bg-transparent px-3 py-2 text-sm">
+              {Array.from({ length: Math.min(artwork.inventory, 10) }, (_, i) => i + 1).map((n) => (
+                <option value={n}>{n}</option>
+              ))}
+            </select>
+            <button type="submit"
+              class="border border-(--color-ink) px-6 py-2 text-sm tracking-[0.04em] uppercase transition-colors hover:bg-(--color-ink) hover:text-(--color-paper)">
+              Add to cart
+            </button>
+          </form>
+          <p id="add-to-cart-status" role="status" class="mt-3 text-sm"></p>
+        </div>
+      )}
+      {status === 'sold' && (
+        <p class="mt-10 text-sm tracking-[0.04em] text-(--color-ink-faint) uppercase">Sold</p>
+      )}
+
+      {/* Always shown, regardless of availability — an enquiry about a
+          sold, not-for-sale, or available piece is equally valid (similar
+          works, commissions, future pieces). Not a purchase action, so it
+          gets the same understated treatment as the status line above it
+          rather than a button competing with "Add to cart". */}
+      <p class:list={[purchasable && artwork.price ? 'mt-4' : 'mt-10']}>
+        <a href={`/contact?artwork=${slug}`} class="text-sm tracking-[0.04em] text-(--color-clay) uppercase hover:underline">
+          Ask about this work &rarr;
+        </a>
+      </p>
+    </div>
     </div>
 
     {galleryImages.length > 0 && (
       <div class="mx-auto max-w-(--measure-full) space-y-4 px-4 pb-16 sm:px-8">
         {galleryImages.map(({ media, caption }) => media && (
           <figure>
-            <img
+            <Image
               src={publicMediaUrl(media.bucket, media.storage_path)}
               alt={media.alt_text ?? artwork.title}
-              width={media.width ?? undefined}
-              height={media.height ?? undefined}
+              width={1400}
+              height={scaledHeight(1400, media)}
+              densities={[1, 1.5]}
+              quality={80}
               loading="lazy"
               class="w-full bg-(--color-paper-raised) object-contain"
             />
@@ -103,4 +177,20 @@ const ogImage = artwork.primary_media
       </div>
     </nav>
   </article>
+
+  <script>
+    import { addToCart } from '../../lib/cart';
+
+    const form = document.getElementById('add-to-cart-form') as HTMLFormElement | null;
+    const status = document.getElementById('add-to-cart-status');
+
+    form?.addEventListener('submit', (event) => {
+      event.preventDefault();
+      const artworkId = form.dataset.artworkId;
+      const quantity = Number(new FormData(form).get('quantity'));
+      if (!artworkId || !Number.isInteger(quantity) || quantity < 1) return;
+      addToCart('artwork', artworkId, quantity);
+      if (status) status.textContent = 'Added to cart.';
+    });
+  </script>
 </Layout>

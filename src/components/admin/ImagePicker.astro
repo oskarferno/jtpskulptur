@@ -1,0 +1,50 @@
+---
+// Shared markup for an admin image upload slot (preview + choose/remove +
+// status line). Pairs with initImagePicker() in
+// src/lib/admin-image-picker.ts, which the page's own <script> wires up by
+// element id using this component's `idPrefix`. Kept as markup-only (no
+// script here) since Astro component scripts can't easily share state with
+// a page's own submit handler — the page owns the picker instance.
+interface Props {
+  idPrefix: string;
+  label: string;
+  helpText?: string;
+  // Optional Tailwind classes so a picker can preview the crop its image
+  // actually gets on the public site (defaults: the original square/centre).
+  aspect?: string;
+  objectPosition?: string;
+}
+
+const { idPrefix, label, helpText, aspect = 'aspect-square', objectPosition = '' } = Astro.props;
+---
+
+<div>
+  <label class="block text-sm text-(--color-ink-soft)">{label}</label>
+  <div class="mt-2 flex items-start gap-4">
+    <div class:list={['relative w-40 shrink-0 overflow-hidden border border-(--color-line) bg-(--color-paper-raised)', aspect]}>
+      <img id={`${idPrefix}-preview`} alt="" hidden class:list={['h-full w-full object-cover', objectPosition]} />
+      <p id={`${idPrefix}-placeholder`} class="flex h-full items-center justify-center px-2 text-center text-xs text-(--color-ink-faint)">
+        No image
+      </p>
+    </div>
+    <div class="space-y-2">
+      <input type="file" id={`${idPrefix}-file`} accept="image/jpeg,image/png,image/webp" class="sr-only" />
+      <label
+        for={`${idPrefix}-file`}
+        class="inline-block cursor-pointer border border-(--color-line) px-3 py-1.5 text-xs tracking-wide uppercase hover:border-(--color-ink)"
+      >
+        Choose image
+      </label>
+      <button
+        type="button"
+        id={`${idPrefix}-remove`}
+        hidden
+        class="block text-xs text-red-700 hover:underline"
+      >
+        Remove image
+      </button>
+      <p id={`${idPrefix}-status`} class="text-xs text-(--color-clay)"></p>
+      {helpText && <p class="max-w-xs text-xs text-(--color-ink-faint)">{helpText}</p>}
+    </div>
+  </div>
+</div>

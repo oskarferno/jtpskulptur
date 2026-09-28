@@ -1,4 +1,5 @@
 ---
+import { Image } from 'astro:assets';
 import Layout from '../layouts/Layout.astro';
 import { getSupabaseClient } from '../lib/supabase';
 import { publicMediaUrl } from '../lib/media';
@@ -19,10 +20,33 @@ const education = (about?.education ?? []) as ListEntry[];
 const awards = (about?.awards ?? []) as ListEntry[];
 const collections = (about?.collections ?? []) as ListEntry[];
 const press = (about?.press ?? []) as ListEntry[];
-const bioParagraphs = (about?.full_bio ?? '').split('\n').filter(Boolean);
+// About Page Bio (full_bio). Falls back to short_bio only if it's empty, so the
+// page never shows a blank bio — never to the homepage bio.
+const bioParagraphs = (about?.full_bio || about?.short_bio || '').split('\n').filter(Boolean);
+
+const personJsonLd = about?.artist_name
+  ? {
+      '@context': 'https://schema.org',
+      '@type': 'Person',
+      name: about.artist_name,
+      description: about.short_bio ?? undefined,
+      image: about.portrait ? publicMediaUrl(about.portrait.bucket, about.portrait.storage_path) : undefined,
+      jobTitle: 'Sculptor',
+    }
+  : undefined;
 ---
 
-<Layout title={`About — ${about?.artist_name ?? 'JTP Skulptur'}`} description={about?.short_bio ?? undefined}>
+<Layout
+  title={`About — ${about?.artist_name ?? 'JTP Skulptur'}`}
+  description={about?.short_bio ?? undefined}
+  jsonLd={personJsonLd}
+>
+  {/* Uses the same --measure-content width as the body below (rather than
+      the wider --measure-full band Portfolio/Shop/Exhibitions use for their
+      listing-page banners), so the title lines up with the bio's left edge
+      at every breakpoint — one continuous reading column, like a single
+      artist-profile page, instead of a wide banner sitting above a
+      narrower, visually disconnected text block. */}
   <header class="mx-auto max-w-(--measure-content) px-4 pt-14 sm:px-8 sm:pt-20">
     <p class="caption">About</p>
     <h1 class="font-display mt-3 text-3xl sm:text-5xl">{about?.artist_name ?? 'JTP Skulptur'}</h1>
@@ -30,9 +54,13 @@ const bioParagraphs = (about?.full_bio ?? '').split('\n').filter(Boolean);
 
   <div class="mx-auto max-w-(--measure-content) px-4 py-10 sm:px-8 sm:py-14">
     {about?.portrait && (
-      <img
+      <Image
         src={publicMediaUrl(about.portrait.bucket, about.portrait.storage_path)}
         alt={about.portrait.alt_text ?? about?.artist_name ?? 'Portrait'}
+        width={500}
+        height={625}
+        densities={[1, 1.5, 2]}
+        quality={80}
         class="mb-10 aspect-[4/5] w-full max-w-sm object-cover object-top"
       />
     )}

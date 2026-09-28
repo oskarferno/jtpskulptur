@@ -1,21 +1,13 @@
 ---
-import { getSupabaseClient } from '../lib/supabase';
+import { getPublicNavLinks, type NavCounts } from '../lib/nav-links';
+import Logo from './Logo.astro';
 
+type Props = NavCounts;
+
+const { exhibitionCount, postCount, shopItemCount } = Astro.props;
 const { pathname } = Astro.url;
-const supabase = getSupabaseClient();
 
-const [{ count: exhibitionCount }, { count: postCount }] = await Promise.all([
-  supabase.from('exhibitions').select('id', { count: 'exact', head: true }).eq('published', true),
-  supabase.from('posts').select('id', { count: 'exact', head: true }).eq('published', true),
-]);
-
-const links = [
-  { href: '/portfolio', label: 'Portfolio' },
-  { href: '/about', label: 'About' },
-  ...(exhibitionCount ? [{ href: '/exhibitions', label: 'Exhibitions' }] : []),
-  ...(postCount ? [{ href: '/journal', label: 'Journal' }] : []),
-  { href: '/contact', label: 'Contact' },
-];
+const links = getPublicNavLinks({ exhibitionCount, postCount, shopItemCount });
 
 function isActive(href: string) {
   if (href === '/') return pathname === '/';
@@ -25,15 +17,7 @@ function isActive(href: string) {
 
 <header id="site-header" class="sticky top-0 z-40 border-b border-(--color-line) bg-(--color-paper)/90 backdrop-blur-sm">
   <div class="mx-auto flex max-w-(--measure-full) items-center justify-between px-4 py-4 sm:px-8 sm:py-5">
-    <a href="/" class="flex-shrink-0">
-      <img
-        src="/jtp-skulptur-logo.png"
-        alt="JTP Skulptur"
-        width="1681"
-        height="150"
-        class="jtp-logo"
-      />
-    </a>
+    <Logo />
 
     <nav aria-label="Main" class="nav:block hidden">
       <ul class="flex gap-x-8 text-sm tracking-[0.02em]">
@@ -56,19 +40,27 @@ function isActive(href: string) {
       </ul>
     </nav>
 
-    <button
-      type="button"
-      id="nav-toggle"
-      class="group nav:hidden -mr-2.5 flex h-11 w-11 shrink-0 items-center justify-center"
-      aria-expanded="false"
-      aria-controls="mobile-menu"
-      aria-label="Open menu"
-    >
-      <span class="relative flex h-[13px] w-5 flex-col justify-between">
-        <span class="block h-px w-full origin-center bg-current transition-transform duration-200 ease-out group-aria-expanded:translate-y-[6px] group-aria-expanded:rotate-45"></span>
-        <span class="block h-px w-full origin-center bg-current transition-transform duration-200 ease-out group-aria-expanded:-translate-y-[6px] group-aria-expanded:-rotate-45"></span>
-      </span>
-    </button>
+    <div class="flex shrink-0 items-center gap-4">
+      {shopItemCount > 0 ? (
+        <a href="/shop/cart" aria-label="Cart" class="text-sm text-(--color-ink-soft) hover:text-(--color-clay)">
+          Cart<span id="cart-count" aria-live="polite"></span>
+        </a>
+      ) : null}
+
+      <button
+        type="button"
+        id="nav-toggle"
+        class="group nav:hidden -mr-2.5 flex h-11 w-11 shrink-0 items-center justify-center"
+        aria-expanded="false"
+        aria-controls="mobile-menu"
+        aria-label="Open menu"
+      >
+        <span class="relative flex h-[13px] w-5 flex-col justify-between">
+          <span class="block h-px w-full origin-center bg-current transition-transform duration-200 ease-out group-aria-expanded:translate-y-[6px] group-aria-expanded:rotate-45"></span>
+          <span class="block h-px w-full origin-center bg-current transition-transform duration-200 ease-out group-aria-expanded:-translate-y-[6px] group-aria-expanded:-rotate-45"></span>
+        </span>
+      </button>
+    </div>
   </div>
 </header>
 
@@ -76,16 +68,18 @@ function isActive(href: string) {
   id="mobile-menu"
   aria-label="Mobile"
   hidden
-  class="nav:hidden fixed inset-x-0 bottom-0 z-30 overflow-y-auto bg-(--color-paper) px-4 pt-10 pb-10 sm:px-8"
+  class="nav:hidden fixed inset-x-0 bottom-0 z-30 overflow-y-auto bg-(--color-paper) px-4 pt-8 pb-10 sm:px-8"
 >
-  <ul class="flex flex-col gap-5 sm:gap-6">
+  {/* Link size is tied to the header logo's "JTP" (see .nav-menu-link and
+      --logo-text-size in styles/global.css), so the two always move together. */}
+  <ul class="flex flex-col gap-4 sm:gap-5">
     {
       links.map((link) => (
         <li>
           <a
             href={link.href}
             class:list={[
-              'font-display block text-4xl leading-none transition-colors sm:text-5xl',
+              'nav-menu-link font-display block leading-none transition-colors',
               isActive(link.href) ? 'text-(--color-clay)' : 'text-(--color-ink)',
             ]}
             aria-current={isActive(link.href) ? 'page' : undefined}
@@ -100,5 +94,26 @@ function isActive(href: string) {
 
 <script>
   import { initNav } from '../lib/nav';
+  import { getCartCount, reconcileCart } from '../lib/cart';
+
   initNav();
+
+  const cartCountEl = document.getElementById('cart-count');
+  function renderCartCount() {
+    if (!cartCountEl) return;
+    const count = getCartCount();
+    cartCountEl.textContent = count > 0 ? ` (${count})` : '';
+  }
+
+  // Validate the persisted cart against live server data once per page
+  // load, rather than trusting raw localStorage directly — this is what
+  // catches a line that went sold/unpublished/out of stock while the user
+  // was elsewhere. If reconcileCart() finds and drops anything invalid, it
+  // persists the correction and fires 'cart:changed' itself, which the
+  // listener below re-renders from. Left deliberately unrendered until this
+  // resolves (no synchronous raw-count render first) so the header never
+  // flashes a number it might immediately have to walk back.
+  reconcileCart().then(renderCartCount);
+
+  window.addEventListener('cart:changed', renderCartCount);
 </script>

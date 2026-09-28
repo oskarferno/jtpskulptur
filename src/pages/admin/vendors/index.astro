@@ -1,0 +1,35 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+
+const supabase = Astro.locals.supabase!;
+
+const { data: vendors } = await supabase.from('vendors').select('id, name, contact_email, active').order('name');
+---
+
+<AdminLayout title="Vendors">
+  <div class="flex items-center justify-between">
+    <p class="text-sm text-(--color-ink-soft)">{vendors?.length ?? 0} vendors</p>
+    <a href="/admin/vendors/new"
+      class="border border-(--color-ink) px-4 py-2 text-sm tracking-wide uppercase hover:bg-(--color-ink) hover:text-(--color-paper)">
+      + New vendor
+    </a>
+  </div>
+
+  {
+    vendors && vendors.length > 0 ? (
+      <ul class="mt-6 divide-y divide-(--color-line) border border-(--color-line)">
+        {vendors.map((v) => (
+          <li>
+            <a href={`/admin/vendors/${v.id}`} class="flex items-center gap-4 px-4 py-3 hover:bg-(--color-paper-raised)">
+              <span class="flex-1">{v.name}</span>
+              <span class="text-sm text-(--color-ink-soft)">{v.contact_email}</span>
+              <span class="text-sm text-(--color-ink-soft)">{v.active ? 'active' : 'inactive'}</span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    ) : (
+      <p class="mt-6 text-(--color-ink-soft)">No vendors yet.</p>
+    )
+  }
+</AdminLayout>

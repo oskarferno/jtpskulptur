@@ -5,12 +5,13 @@ export const prerender = false;
 
 const supabase = Astro.locals.supabase;
 
-const [{ count: draftCount }, { count: unreadCount }] = supabase
+const [{ count: draftCount }, { count: unreadCount }, { count: awaitingFulfillmentCount }] = supabase
   ? await Promise.all([
       supabase.from('artworks').select('id', { count: 'exact', head: true }).eq('published', false),
       supabase.from('contact_messages').select('id', { count: 'exact', head: true }).eq('read', false),
+      supabase.from('orders').select('id', { count: 'exact', head: true }).eq('payment_status', 'paid').eq('fulfillment_status', 'processing'),
     ])
-  : [{ count: null }, { count: null }];
+  : [{ count: null }, { count: null }, { count: null }];
 
 const sections = [
   { href: '/admin/portfolio', label: 'Portfolio' },
@@ -20,6 +21,11 @@ const sections = [
   { href: '/admin/media', label: 'Media' },
   { href: '/admin/contact', label: 'Contact' },
   { href: '/admin/settings', label: 'Site Settings' },
+  { href: '/admin/shop', label: 'Shop / Products' },
+  { href: '/admin/orders', label: 'Orders' },
+  { href: '/admin/vendors', label: 'Vendors' },
+  { href: '/admin/shipping', label: 'Shipping' },
+  { href: '/admin/newsletter', label: 'Newsletter' },
 ];
 ---
 
@@ -47,6 +53,10 @@ const sections = [
         <div class="border border-(--color-line) p-4">
           <p class="text-2xl">{unreadCount ?? '—'}</p>
           <p class="text-sm text-(--color-ink-soft)">Unread messages</p>
+        </div>
+        <div class="border border-(--color-line) p-4">
+          <p class="text-2xl">{awaitingFulfillmentCount ?? '—'}</p>
+          <p class="text-sm text-(--color-ink-soft)">Orders to fulfill</p>
         </div>
       </div>
 

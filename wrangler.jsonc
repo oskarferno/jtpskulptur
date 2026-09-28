@@ -10,7 +10,15 @@
 	},
 	"vars": {
 		"PUBLIC_SUPABASE_URL": "https://ydhdpaddjonoavfouijv.supabase.co",
-		"PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlkaGRwYWRkam9ub2F2Zm91aWp2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk0NzMxOTAsImV4cCI6MjEwNTA0OTE5MH0.GEuQmVvi0OlLfESkTvwU4iNpauJj3ySTbIyw8drQo5s"
+		"PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlkaGRwYWRkam9ub2F2Zm91aWp2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk0NzMxOTAsImV4cCI6MjEwNTA0OTE5MH0.GEuQmVvi0OlLfESkTvwU4iNpauJj3ySTbIyw8drQo5s",
+		// Set now that jtpskulptur.com is live and verified (DNS cutover
+		// confirmed working, canonical/OG/sitemap already resolving correctly
+		// via the request-origin fallback in lib/site-url.ts even before this
+		// was set). This just makes it explicit/authoritative going forward
+		// rather than relying on the fallback indefinitely — see PUBLIC_SITE_URL's
+		// own comment in astro.config.mjs for why this is a separate value
+		// from Astro's own static `site` field.
+		"PUBLIC_SITE_URL": "https://jtpskulptur.com"
 	},
 	"observability": {
 		"enabled": true

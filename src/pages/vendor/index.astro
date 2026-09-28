@@ -1,0 +1,115 @@
+---
+import VendorLayout from '../../layouts/VendorLayout.astro';
+import { getSupabaseServerClient } from '../../lib/supabase-server';
+
+export const prerender = false;
+
+interface ShippingAddress {
+  name?: string;
+  line1?: string;
+  line2?: string | null;
+  city?: string;
+  postal_code?: string;
+  country?: string;
+}
+
+// The middleware already verified locals.vendorId server-side (a fresh DB
+// lookup on every request, not just at login) — this page trusts it the
+// same way /api/vendor/orders.ts does, via the service role, never RLS.
+const vendorId = Astro.locals.vendorId!;
+const admin = getSupabaseServerClient();
+
+const { data: items } = await admin
+  .from('order_items')
+  .select(
+    `id, order_id, product_name, sku, unit_price, quantity, shipped_at, tracking_number,
+     order:order_id (order_number, customer_name, shipping_address, payment_status, paid_at)`
+  )
+  .eq('vendor_id', vendorId)
+  .order('created_at', { ascending: false });
+
+const paidItems = (items ?? []).filter((i) => i.order?.payment_status === 'paid');
+const unshipped = paidItems.filter((i) => !i.shipped_at);
+const shipped = paidItems.filter((i) => i.shipped_at);
+---
+
+<VendorLayout title="Orders">
+  <section>
+    <h2 class="font-display text-xl">To fulfill ({unshipped.length})</h2>
+    {unshipped.length === 0 ? (
+      <p class="mt-4 text-sm text-(--color-ink-soft)">Nothing waiting to ship.</p>
+    ) : (
+      <ul class="mt-4 divide-y divide-(--color-line) border-t border-(--color-line)">
+        {unshipped.map((item) => {
+          const address = (item.order?.shipping_address ?? null) as ShippingAddress | null;
+          return (
+            <li class="py-4" data-item-id={item.id}>
+              <p class="text-sm">
+                <strong>{item.product_name}</strong> &times; {item.quantity}
+                {item.sku && <span class="text-(--color-ink-faint)"> — {item.sku}</span>}
+              </p>
+              <p class="mt-1 text-sm text-(--color-ink-soft)">Order {item.order?.order_number}</p>
+              {address && (
+                <p class="mt-1 text-sm text-(--color-ink-faint)">
+                  {address.name}, {address.line1}{address.line2 ? `, ${address.line2}` : ''}, {address.city} {address.postal_code}, {address.country}
+                </p>
+              )}
+              <form class="ship-form mt-3 flex flex-wrap items-center gap-2">
+                <input type="text" name="trackingNumber" placeholder="Tracking number (optional)" class="border border-(--color-line) bg-transparent px-2 py-1 text-sm" />
+                <input type="url" name="trackingUrl" placeholder="Tracking URL (optional)" class="border border-(--color-line) bg-transparent px-2 py-1 text-sm" />
+                <button type="submit" class="border border-(--color-ink) px-4 py-1.5 text-sm uppercase tracking-[0.04em] hover:bg-(--color-ink) hover:text-(--color-paper)">
+                  Mark shipped
+                </button>
+              </form>
+            </li>
+          );
+        })}
+      </ul>
+    )}
+  </section>
+
+  <section class="mt-12">
+    <h2 class="font-display text-xl">Shipped ({shipped.length})</h2>
+    {shipped.length > 0 && (
+      <ul class="mt-4 divide-y divide-(--color-line) border-t border-(--color-line)">
+        {shipped.map((item) => (
+          <li class="py-4 text-sm">
+            <strong>{item.product_name}</strong> &times; {item.quantity} — Order {item.order?.order_number}
+            {item.tracking_number && <span class="text-(--color-ink-faint)"> — {item.tracking_number}</span>}
+          </li>
+        ))}
+      </ul>
+    )}
+  </section>
+
+  <script>
+    document.querySelectorAll<HTMLFormElement>('.ship-form').forEach((form) => {
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const li = form.closest('[data-item-id]') as HTMLElement | null;
+        const itemId = li?.dataset.itemId;
+        if (!itemId) return;
+        const data = new FormData(form);
+        const button = form.querySelector('button')!;
+        button.disabled = true;
+        try {
+          const res = await fetch(`/api/vendor/orders/${itemId}/ship`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              trackingNumber: data.get('trackingNumber') || undefined,
+              trackingUrl: data.get('trackingUrl') || undefined,
+            }),
+          });
+          if (res.ok) {
+            window.location.reload();
+          } else {
+            button.disabled = false;
+          }
+        } catch {
+          button.disabled = false;
+        }
+      });
+    });
+  </script>
+</VendorLayout>

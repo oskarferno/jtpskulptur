@@ -1,0 +1,162 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { getSupabaseClient } from '../lib/supabase';
+
+const supabase = getSupabaseClient();
+const { data: settings } = await supabase.from('site_settings').select('contact_email').single();
+const contactEmail = settings?.contact_email ?? null;
+
+const LAST_UPDATED = '23 September 2026';
+---
+
+<Layout title="Privacy — JTP Skulptur" description="How JTP Skulptur collects, uses, and protects your personal information.">
+  <header class="mx-auto max-w-(--measure-full) px-4 pt-14 sm:px-8 sm:pt-20">
+    <p class="caption">Legal</p>
+    <h1 class="font-display mt-3 text-3xl sm:text-5xl">Privacy Policy</h1>
+  </header>
+
+  <div class="mx-auto max-w-(--measure-content) px-4 py-10 sm:px-8 sm:py-14">
+    <p class="caption">Last updated {LAST_UPDATED}</p>
+
+    <div class="mt-6 border-l-2 border-(--color-clay) pl-6 text-sm leading-relaxed text-(--color-ink-soft)">
+      <p>
+        This policy describes, in plain language, what JTP Skulptur's website actually does with personal
+        information today. It has been drafted directly from the site's implementation — it is <strong>not</strong>
+        {' '}a legally reviewed document. Passages marked <strong class="text-(--color-clay)">[Confirm]</strong> need
+        input from the site owner, and ideally a qualified advisor, before this page should be relied on as a final
+        policy.
+      </p>
+    </div>
+
+    <p class="mt-10 leading-relaxed">
+      JTP Skulptur ("we", "us") is a studio and online gallery for the sculpture of Jens Wollinger. This policy
+      explains what information we collect through this website, why, and how it's handled.
+    </p>
+
+    <h2 class="font-display mt-12 text-xl sm:text-2xl">Who we are</h2>
+    <p class="mt-4 leading-relaxed">
+      <strong class="text-(--color-clay)">[Confirm]</strong> Registered business name, legal entity, business
+      registration number, and registered address, if applicable.
+      {contactEmail && (
+        <>
+          {' '}You can reach us at <a href={`mailto:${contactEmail}`} class="text-(--color-clay) hover:underline">{contactEmail}</a>.
+        </>
+      )}
+    </p>
+
+    <h2 class="font-display mt-12 text-xl sm:text-2xl">Information we collect</h2>
+    <p class="mt-4 leading-relaxed">We collect the following information, only where you provide it directly:</p>
+    <ul class="mt-4 space-y-3 leading-relaxed">
+      <li><strong>Contact form</strong> — your name, email address, subject, and message, when you write to us.</li>
+      <li>
+        <strong>Newsletter</strong> — your email address, when you subscribe. We use a confirmation email (double
+        opt-in) before adding you to the list, and every send includes an unsubscribe link.
+      </li>
+      <li>
+        <strong>Orders</strong> — your email address at checkout, and, once payment succeeds, the name and shipping
+        address you give to our payment processor, Stripe. We never see or store your full card details — see
+        "Payment processing" below.
+      </li>
+      <li>
+        <strong>Shopping cart</strong> — the items in your cart are kept only in your own browser (local storage) and
+        are not sent to our servers until you check out.
+      </li>
+      <li>
+        <strong>Studio and partner accounts</strong> — staff and studio-partner ("vendor") logins are authenticated by
+        email and password. This applies only to internal accounts, not to visitors or customers.
+      </li>
+    </ul>
+    <p class="mt-4 leading-relaxed">
+      We do not use advertising or marketing tracking. With your consent only, we use Google Analytics 4 to
+      understand, in aggregate, how the website is used (pages viewed, approximate location, device and browser).
+      See our
+      {' '}<a href="/cookies" class="text-(--color-clay) hover:underline">Cookies Policy</a> for exactly what is set
+      and how to change your choice.
+    </p>
+
+    <h2 class="font-display mt-12 text-xl sm:text-2xl">How we use this information</h2>
+    <ul class="mt-4 space-y-3 leading-relaxed">
+      <li>To respond to messages sent through the contact form.</li>
+      <li>To process, confirm, and fulfil orders, and to email you order confirmations.</li>
+      <li>To send newsletter updates you've explicitly opted into, and to honour unsubscribe requests.</li>
+      <li>To notify the relevant studio partner when an order includes a piece they need to ship.</li>
+      <li>
+        To understand, in aggregate, how the website is used — only if you accept analytics cookies. The legal basis
+        is your consent, which you can withdraw at any time via “Cookie settings” in the footer.
+      </li>
+    </ul>
+
+    <h2 class="font-display mt-12 text-xl sm:text-2xl">Payment processing</h2>
+    <p class="mt-4 leading-relaxed">
+      All payments are handled by <a href="https://stripe.com/privacy" target="_blank" rel="noopener noreferrer" class="text-(--color-clay) hover:underline">Stripe</a>,
+      on Stripe's own secure, hosted checkout page. We never receive or store your card number, expiry date, or CVC.
+      Stripe passes us your order total, email, and — once payment succeeds — the shipping name and address you
+      entered, so we can fulfil your order.
+    </p>
+
+    <h2 class="font-display mt-12 text-xl sm:text-2xl">Who we share information with</h2>
+    <ul class="mt-4 space-y-3 leading-relaxed">
+      <li>
+        <strong>Studio partners ("vendors")</strong> — if your order includes a piece from an independent maker
+        featured on the site, that partner can see the order's shipping name, address, and item details, solely to
+        ship your item. They do not see your email address or any payment information.
+      </li>
+      <li>
+        <strong>Service providers</strong> — we use Supabase (database and file storage), Stripe (payments), Resend
+        (transactional email delivery), and Cloudflare (website hosting) to run this site, and — only if you accept
+        analytics cookies — Google (Google Analytics 4). Each processes data on our behalf under their own security
+        and privacy terms.
+        <strong class="text-(--color-clay)"> [Confirm]</strong> hosting/storage region and data-processing agreements
+        for each provider.
+      </li>
+      <li>We do not sell personal information, and we do not share it for advertising purposes.</li>
+    </ul>
+
+    <h2 class="font-display mt-12 text-xl sm:text-2xl">How long we keep information</h2>
+    <p class="mt-4 leading-relaxed">
+      <strong class="text-(--color-clay)">[Confirm]</strong> Specific retention periods have not yet been defined.
+      Order, contact, and newsletter records are currently kept indefinitely unless you ask us to delete them.
+    </p>
+
+    <h2 class="font-display mt-12 text-xl sm:text-2xl">Your rights</h2>
+    <p class="mt-4 leading-relaxed">
+      <strong class="text-(--color-clay)">[Confirm]</strong> Applicable jurisdiction(s) — e.g. whether GDPR (EU/EEA
+      customers) or other regional privacy law applies. Subject to that, you typically have the right to access,
+      correct, delete, or export the personal information we hold about you, and to object to or restrict certain
+      uses of it.
+      {contactEmail ? (
+        <> To exercise any of these, email us at <a href={`mailto:${contactEmail}`} class="text-(--color-clay) hover:underline">{contactEmail}</a>.</>
+      ) : (
+        ' To exercise any of these, please contact us.'
+      )}
+    </p>
+
+    <h2 class="font-display mt-12 text-xl sm:text-2xl">Cookies</h2>
+    <p class="mt-4 leading-relaxed">
+      This website uses strictly necessary cookies and local storage and, only if you accept, Google Analytics
+      cookies. We use no advertising or marketing cookies. You can change your choice at any time via “Cookie
+      settings” in the footer. Full detail is in our
+      <a href="/cookies" class="text-(--color-clay) hover:underline">Cookies Policy</a>.
+    </p>
+
+    <h2 class="font-display mt-12 text-xl sm:text-2xl">Children</h2>
+    <p class="mt-4 leading-relaxed">
+      This website is not directed at children, and we do not knowingly collect personal information from children.
+      <strong class="text-(--color-clay)"> [Confirm]</strong> any specific age threshold you'd like stated here.
+    </p>
+
+    <h2 class="font-display mt-12 text-xl sm:text-2xl">Changes to this policy</h2>
+    <p class="mt-4 leading-relaxed">
+      If this policy changes, we'll update the "last updated" date at the top of this page.
+    </p>
+
+    <h2 class="font-display mt-12 text-xl sm:text-2xl">Contact</h2>
+    <p class="mt-4 leading-relaxed">
+      {contactEmail ? (
+        <>Questions about this policy or your information can be sent to <a href={`mailto:${contactEmail}`} class="text-(--color-clay) hover:underline">{contactEmail}</a>.</>
+      ) : (
+        <>Questions about this policy or your information can be sent via our <a href="/contact" class="text-(--color-clay) hover:underline">contact page</a>.</>
+      )}
+    </p>
+  </div>
+</Layout>

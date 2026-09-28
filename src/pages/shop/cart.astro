@@ -1,0 +1,222 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { getSupabaseClient } from '../../lib/supabase';
+
+const supabase = getSupabaseClient();
+const { data: rawShippingRates } = await supabase
+  .from('shipping_rates')
+  .select('region, label, price, currency')
+  .eq('active', true);
+
+// Sweden first (JTP's home market and the default selection), then
+// everything else alphabetically by label.
+const shippingRates = (rawShippingRates ?? []).sort((a, b) =>
+  a.region === 'sweden' ? -1 : b.region === 'sweden' ? 1 : a.label.localeCompare(b.label)
+);
+
+const cancelled = Astro.url.searchParams.get('cancelled') === '1';
+---
+
+<Layout title="Cart — JTP Skulptur" noindex>
+  <header class="mx-auto max-w-(--measure-full) px-4 pt-14 sm:px-8 sm:pt-20">
+    <p class="caption">Shop</p>
+    <h1 class="font-display mt-3 text-3xl sm:text-4xl">Cart</h1>
+  </header>
+
+  <div class="mx-auto max-w-(--measure-content) px-4 py-10 sm:px-8 sm:py-14">
+    {cancelled && (
+      <p class="mt-6 border border-(--color-line) px-4 py-3 text-sm text-(--color-ink-soft)">
+        Checkout was cancelled — your cart is still here.
+      </p>
+    )}
+
+    <div id="cart-empty" hidden class="mt-10 text-(--color-ink-soft)">
+      Your cart is empty. <a href="/shop" class="text-(--color-clay) hover:underline">Continue shopping &rarr;</a>
+    </div>
+
+    <div id="cart-lines" class="mt-10 divide-y divide-(--color-line) border-t border-(--color-line)"></div>
+
+    <div id="cart-checkout" hidden class="mt-10 space-y-6">
+      <div class="flex items-baseline justify-between text-sm">
+        <span>Subtotal</span>
+        <span id="cart-subtotal"></span>
+      </div>
+
+      <div>
+        <label for="shipping-region" class="block text-sm text-(--color-ink-soft)">Shipping to</label>
+        <select id="shipping-region" class="mt-1 w-full max-w-xs border border-(--color-line) bg-transparent px-3 py-2 text-sm">
+          <option value="">Select a region&hellip;</option>
+          {shippingRates.map((r) => (
+            <option value={r.region} data-price={r.price} data-currency={r.currency} selected={r.region === 'sweden'}>
+              {r.label} — {r.price.toFixed(0)} {r.currency}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div>
+        <label for="email" class="block text-sm text-(--color-ink-soft)">Email</label>
+        <input
+          id="email"
+          type="email"
+          required
+          class="mt-1 w-full max-w-xs border border-(--color-line) bg-transparent px-3 py-2 text-sm focus:border-(--color-clay)"
+        />
+      </div>
+
+      <div class="flex items-baseline justify-between text-lg">
+        <span>Total</span>
+        <span id="cart-total"></span>
+      </div>
+
+      <button
+        id="checkout-button"
+        type="button"
+        class="border border-(--color-ink) px-6 py-2 text-sm tracking-[0.04em] uppercase transition-colors hover:bg-(--color-ink) hover:text-(--color-paper) disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        Checkout
+      </button>
+      <p id="checkout-status" role="status" class="text-sm text-(--color-ink-soft)"></p>
+    </div>
+  </div>
+
+  <script>
+    import {
+      updateQuantity,
+      removeFromCart,
+      reconcileCart,
+      getCheckoutClientSessionId,
+      type CartLine,
+      type CartItemType,
+      type CartValidatedItem,
+    } from '../../lib/cart';
+
+    type CartItem = CartValidatedItem;
+
+    const linesEl = document.getElementById('cart-lines')!;
+    const emptyEl = document.getElementById('cart-empty')!;
+    const checkoutSectionEl = document.getElementById('cart-checkout')!;
+    const subtotalEl = document.getElementById('cart-subtotal')!;
+    const totalEl = document.getElementById('cart-total')!;
+    const regionSelect = document.getElementById('shipping-region') as unknown as HTMLSelectElement;
+    const emailInput = document.getElementById('email') as HTMLInputElement;
+    const checkoutButton = document.getElementById('checkout-button') as HTMLButtonElement;
+    const checkoutStatus = document.getElementById('checkout-status')!;
+
+    let cartItems: CartItem[] = [];
+    let cartLines: CartLine[] = [];
+
+    function money(amount: number, currency: string) {
+      return `${amount.toFixed(2)} ${currency}`;
+    }
+
+    function shippingPrice(): number {
+      const opt = regionSelect.selectedOptions[0];
+      return opt?.dataset.price ? Number(opt.dataset.price) : 0;
+    }
+
+    function render() {
+      if (cartLines.length === 0) {
+        emptyEl.hidden = false;
+        linesEl.innerHTML = '';
+        checkoutSectionEl.hidden = true;
+        return;
+      }
+      emptyEl.hidden = true;
+      checkoutSectionEl.hidden = false;
+
+      linesEl.innerHTML = '';
+      let subtotal = 0;
+      const currency = cartItems[0]?.currency ?? '';
+
+      for (const line of cartLines) {
+        const item = cartItems.find((i) => i.type === line.type && i.id === line.id);
+        if (!item) continue;
+        subtotal += item.price * line.quantity;
+
+        const href = item.type === 'artwork' ? `/portfolio/${item.slug}` : `/shop/${item.slug}`;
+        const row = document.createElement('div');
+        row.className = 'flex items-center gap-4 py-4';
+        row.innerHTML = `
+          ${item.image ? `<img src="${item.image}" alt="" class="h-20 w-16 object-cover bg-(--color-paper-raised)" />` : ''}
+          <div class="flex-1">
+            <a href="${href}" class="text-sm hover:text-(--color-clay)">${item.name}</a>
+            <p class="mt-1 text-sm text-(--color-ink-faint)">${money(item.price, item.currency)}</p>
+          </div>
+          <input type="number" min="1" max="${Math.min(item.inventory, 20)}" value="${line.quantity}" class="qty-input w-16 border border-(--color-line) bg-transparent px-2 py-1 text-sm" data-type="${item.type}" data-id="${item.id}" />
+          <button type="button" class="remove-btn text-sm text-(--color-ink-faint) hover:text-(--color-clay)" data-type="${item.type}" data-id="${item.id}">Remove</button>
+        `;
+        linesEl.appendChild(row);
+      }
+
+      subtotalEl.textContent = money(subtotal, currency);
+      totalEl.textContent = money(subtotal + shippingPrice(), currency);
+
+      linesEl.querySelectorAll<HTMLInputElement>('.qty-input').forEach((input) => {
+        input.addEventListener('change', () => {
+          const type = input.dataset.type as CartItemType;
+          const id = input.dataset.id!;
+          const qty = Math.max(1, Math.min(20, Number(input.value) || 1));
+          updateQuantity(type, id, qty);
+        });
+      });
+      linesEl.querySelectorAll<HTMLButtonElement>('.remove-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          removeFromCart(btn.dataset.type as CartItemType, btn.dataset.id!);
+        });
+      });
+    }
+
+    async function load() {
+      // Same reconciliation the header uses — this is what keeps the two in
+      // agreement. A line that's sold/unpublished/deleted/out of stock gets
+      // dropped here AND persisted back to storage, not just filtered out of
+      // this page's own in-memory state.
+      const result = await reconcileCart();
+      cartLines = result.lines;
+      cartItems = result.items;
+      render();
+    }
+
+    regionSelect.addEventListener('change', render);
+    window.addEventListener('cart:changed', load);
+
+    checkoutButton.addEventListener('click', async () => {
+      checkoutStatus.textContent = '';
+      if (!regionSelect.value) {
+        checkoutStatus.textContent = 'Please select a shipping region.';
+        return;
+      }
+      if (!emailInput.checkValidity()) {
+        checkoutStatus.textContent = 'Please enter a valid email.';
+        return;
+      }
+      checkoutButton.disabled = true;
+      checkoutStatus.textContent = 'Redirecting to checkout…';
+      try {
+        const res = await fetch('/api/checkout/session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            items: cartLines.map((l) => ({ type: l.type, id: l.id, quantity: l.quantity })),
+            shippingRegion: regionSelect.value,
+            email: emailInput.value,
+            clientSessionId: getCheckoutClientSessionId(),
+          }),
+        });
+        const data = (await res.json()) as { url?: string; error?: string };
+        if (!res.ok || !data.url) {
+          checkoutStatus.textContent = data.error ?? 'Something went wrong. Please try again.';
+          checkoutButton.disabled = false;
+          return;
+        }
+        window.location.href = data.url;
+      } catch {
+        checkoutStatus.textContent = 'Something went wrong. Please try again.';
+        checkoutButton.disabled = false;
+      }
+    });
+
+    load();
+  </script>
+</Layout>

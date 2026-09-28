@@ -1,0 +1,126 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import NewsletterComposer from '../../../components/admin/NewsletterComposer.astro';
+import { publicMediaUrl } from '../../../lib/media';
+import { renderMarkdown } from '../../../lib/markdown';
+
+const supabase = Astro.locals.supabase!;
+const { id } = Astro.params;
+
+if (!id) {
+  return Astro.redirect('/admin/newsletter');
+}
+
+const { data: campaign } = await supabase
+  .from('newsletter_campaigns')
+  .select(
+    `id, subject, preview_text, content_markdown, cta_text, cta_url, status, sent_at, recipient_count, updated_at,
+     primary_media:primary_image_id (id, storage_path, bucket)`
+  )
+  .eq('id', id)
+  .single();
+
+if (!campaign) {
+  return Astro.redirect('/admin/newsletter');
+}
+
+const { count: confirmedCount } = await supabase
+  .from('newsletter_subscribers')
+  .select('id', { count: 'exact', head: true })
+  .eq('status', 'confirmed');
+
+const imageUrl = campaign.primary_media ? publicMediaUrl(campaign.primary_media.bucket, campaign.primary_media.storage_path) : null;
+const contentHtml = campaign.status === 'sent' ? renderMarkdown(campaign.content_markdown) : '';
+---
+
+<AdminLayout title={campaign.subject || 'Newsletter'}>
+  {
+    campaign.status === 'sent' ? (
+      <div class="max-w-2xl">
+        <div class="flex items-center gap-3">
+          <span class="border border-(--color-ink) px-2 py-0.5 text-xs uppercase tracking-[0.04em]">Sent</span>
+          <span class="text-xs text-(--color-ink-faint)">
+            {campaign.sent_at && new Date(campaign.sent_at).toLocaleString('en-GB')} &middot; {campaign.recipient_count ?? 0} recipients
+          </span>
+        </div>
+
+        <p class="mt-6 text-sm text-(--color-ink-soft)">
+          Sent newsletters are frozen and can't be edited or resent. Use Duplicate to start a new draft from this one.
+        </p>
+
+        <button type="button" id="duplicate-btn" data-campaign-id={campaign.id}
+          class="mt-3 border border-(--color-line) px-4 py-2 text-sm uppercase tracking-[0.04em] hover:border-(--color-clay) hover:text-(--color-clay)">
+          Duplicate as new draft
+        </button>
+        <p id="duplicate-status" role="status" class="mt-1 text-sm"></p>
+
+        <div class="mt-10 border border-(--color-line)">
+          {imageUrl && <img src={imageUrl} alt="" class="w-full object-cover" />}
+          <div class="p-6">
+            <p class="caption">{campaign.preview_text}</p>
+            <h2 class="font-display mt-2 text-xl">{campaign.subject}</h2>
+            <div class="prose-newsletter mt-4 text-sm text-(--color-ink-soft)" set:html={contentHtml} />
+            {campaign.cta_text && campaign.cta_url && (
+              <a href={campaign.cta_url} class="mt-4 inline-block border border-(--color-ink) px-4 py-2 text-sm uppercase tracking-[0.04em] hover:bg-(--color-ink) hover:text-(--color-paper)">
+                {campaign.cta_text}
+              </a>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <script>
+        const btn = document.getElementById('duplicate-btn') as HTMLButtonElement;
+        const status = document.getElementById('duplicate-status')!;
+        btn.addEventListener('click', async () => {
+          btn.disabled = true;
+          status.textContent = 'Duplicating…';
+          const res = await fetch(`/api/admin/newsletter/${btn.dataset.campaignId}/duplicate`, { method: 'POST' });
+          const result = (await res.json().catch(() => ({}))) as { id?: string; error?: string };
+          if (res.ok && result.id) {
+            window.location.href = `/admin/newsletter/${result.id}`;
+          } else {
+            status.textContent = result.error ?? 'Could not duplicate.';
+            btn.disabled = false;
+          }
+        });
+      </script>
+    ) : (
+      <NewsletterComposer campaign={campaign} confirmedSubscriberCount={confirmedCount ?? 0} />
+    )
+  }
+</AdminLayout>
+
+<style>
+  /* Tailwind's preflight strips default heading/list styling site-wide, but
+     this is raw HTML rendered from the campaign's Markdown (set:html) — it
+     needs its own minimal readable styles back, unlike the rest of admin
+     which uses plain text/inputs throughout. */
+  .prose-newsletter :global(h1),
+  .prose-newsletter :global(h2),
+  .prose-newsletter :global(h3) {
+    font-family: var(--font-serif);
+    font-weight: 400;
+    color: var(--color-ink);
+    margin-top: 1em;
+    margin-bottom: 0.4em;
+  }
+  .prose-newsletter :global(p) {
+    margin-bottom: 1em;
+  }
+  .prose-newsletter :global(ul),
+  .prose-newsletter :global(ol) {
+    margin-bottom: 1em;
+    padding-left: 1.25em;
+  }
+  .prose-newsletter :global(ul) {
+    list-style: disc;
+  }
+  .prose-newsletter :global(ol) {
+    list-style: decimal;
+  }
+  .prose-newsletter :global(a) {
+    color: var(--color-clay);
+    text-decoration: underline;
+  }
+</style>

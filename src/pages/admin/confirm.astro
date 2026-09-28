@@ -1,0 +1,50 @@
+---
+import '../../styles/global.css';
+
+export const prerender = false;
+
+// Reached from a Supabase invite/recovery email link that points here
+// instead of Supabase's own auto-processing verify endpoint (see the
+// Auth email template — it must link to
+// /admin/confirm?token_hash={{ .TokenHash }}&type={{ .Type }} rather than
+// {{ .ConfirmationURL }}). Deliberately does nothing but render a button on
+// GET: an automated link-scanner (Gmail and similar prefetch links to check
+// them) only ever issues a GET and never submits a form, so the one-time
+// token_hash stays unconsumed until a real click POSTs it to
+// /api/admin/confirm. Consuming it directly on GET is what broke every
+// earlier attempt — the scanner's prefetch burned the token before the
+// actual click ever happened.
+const tokenHash = Astro.url.searchParams.get('token_hash') ?? '';
+const type = Astro.url.searchParams.get('type') ?? '';
+const missing = !tokenHash || !type;
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Confirm — jtp.skulptur admin</title>
+  </head>
+  <body class="flex min-h-screen items-center justify-center bg-(--color-paper) text-(--color-ink)">
+    <div class="w-full max-w-sm space-y-4 px-6 text-center">
+      <h1 class="font-display text-2xl">jtp.skulptur admin</h1>
+
+      {missing ? (
+        <p class="text-sm text-red-700">This link is missing required information. Please use the link from your email.</p>
+      ) : (
+        <>
+          <p class="text-sm text-(--color-ink-soft)">Click below to continue.</p>
+          <form method="POST" action="/api/admin/confirm">
+            <input type="hidden" name="token_hash" value={tokenHash} />
+            <input type="hidden" name="type" value={type} />
+            <button type="submit"
+              class="w-full border border-(--color-ink) px-6 py-2 text-sm tracking-wide uppercase transition-colors hover:bg-(--color-ink) hover:text-(--color-paper)">
+              Continue
+            </button>
+          </form>
+        </>
+      )}
+    </div>
+  </body>
+</html>

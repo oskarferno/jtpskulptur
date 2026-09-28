@@ -1,0 +1,76 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+
+const supabase = Astro.locals.supabase!;
+
+const { data: orders } = await supabase
+  .from('orders')
+  .select('id, order_number, customer_email, total, currency, payment_status, fulfillment_status, shipping_address_status, created_at')
+  .order('created_at', { ascending: false });
+
+// Plain labels for what's otherwise a raw DB value — 'pending' in
+// particular is ambiguous on its own ("pending what?"), and an admin
+// shouldn't need to know the schema to understand why an order is in this
+// list. 'expired' vs 'failed' is the distinction this whole investigation
+// was about: a reservation that simply timed out (customer never finished)
+// vs a genuine declined/failed payment attempt.
+const PAYMENT_LABELS: Record<string, string> = {
+  pending: 'Reserved — checkout in progress',
+  paid: 'Paid',
+  failed: 'Payment failed',
+  refunded: 'Refunded',
+  expired: 'Reservation expired',
+};
+const PAYMENT_COLOR: Record<string, string> = {
+  pending: 'text-(--color-ink-soft)',
+  paid: 'text-(--color-clay)',
+  failed: 'text-red-700',
+  refunded: 'text-(--color-ink-faint)',
+  expired: 'text-(--color-ink-faint)',
+};
+---
+
+<AdminLayout title="Orders">
+  {
+    orders && orders.length > 0 ? (
+      <table class="mt-2 w-full border border-(--color-line) text-sm">
+        <thead>
+          <tr class="border-b border-(--color-line) text-left text-(--color-ink-soft)">
+            <th class="px-3 py-2">Order</th>
+            <th class="px-3 py-2">Date</th>
+            <th class="px-3 py-2">Customer</th>
+            <th class="px-3 py-2">Amount</th>
+            <th class="px-3 py-2">Payment</th>
+            <th class="px-3 py-2">Fulfillment</th>
+          </tr>
+        </thead>
+        <tbody>
+          {orders.map((o) => (
+            <tr class="border-b border-(--color-line) last:border-0 hover:bg-(--color-paper-raised)">
+              <td class="px-3 py-2">
+                <a href={`/admin/orders/${o.id}`} class="hover:text-(--color-clay)">{o.order_number}</a>
+              </td>
+              <td class="px-3 py-2 text-(--color-ink-soft)">{new Date(o.created_at).toLocaleDateString('en-GB')}</td>
+              <td class="px-3 py-2 text-(--color-ink-soft)">{o.customer_email}</td>
+              <td class="px-3 py-2">{o.total.toFixed(2)} {o.currency}</td>
+              <td class:list={['px-3 py-2', PAYMENT_COLOR[o.payment_status] ?? '']}>
+                {PAYMENT_LABELS[o.payment_status] ?? o.payment_status}
+              </td>
+              <td class="px-3 py-2">
+                {o.shipping_address_status === 'review_required' ? (
+                  <span class="text-red-700">Address review required</span>
+                ) : o.fulfillment_status === 'awaiting_payment' ? (
+                  <span class="text-(--color-ink-faint)">—</span>
+                ) : (
+                  o.fulfillment_status
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    ) : (
+      <p class="mt-6 text-(--color-ink-soft)">No orders yet.</p>
+    )
+  }
+</AdminLayout>

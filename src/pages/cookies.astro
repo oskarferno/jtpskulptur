@@ -1,0 +1,118 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { getSupabaseClient } from '../lib/supabase';
+
+const supabase = getSupabaseClient();
+const { data: settings } = await supabase.from('site_settings').select('contact_email').single();
+const contactEmail = settings?.contact_email ?? null;
+
+const LAST_UPDATED = '23 September 2026';
+---
+
+<Layout title="Cookies — JTP Skulptur" description="What cookies and local storage JTP Skulptur's website actually uses.">
+  <header class="mx-auto max-w-(--measure-full) px-4 pt-14 sm:px-8 sm:pt-20">
+    <p class="caption">Legal</p>
+    <h1 class="font-display mt-3 text-3xl sm:text-5xl">Cookies</h1>
+  </header>
+
+  <div class="mx-auto max-w-(--measure-content) px-4 py-10 sm:px-8 sm:py-14">
+    <p class="caption">Last updated {LAST_UPDATED}</p>
+
+    <div class="mt-6 border-l-2 border-(--color-clay) pl-6 text-sm leading-relaxed text-(--color-ink-soft)">
+      <p>
+        This page is a direct audit of what this website actually stores in your browser — not a generic template.
+        It has not been legally reviewed; treat it as an accurate technical account rather than a finalised legal
+        document.
+      </p>
+    </div>
+
+    <h2 class="font-display mt-12 text-xl sm:text-2xl">Our approach</h2>
+    <p class="mt-4 leading-relaxed">
+      JTP Skulptur's website uses the cookies and browser storage that are strictly necessary for it to work. With
+      your consent only, it also uses Google Analytics 4 to measure, in aggregate, how the site is used. We do not
+      use advertising or marketing cookies. Analytics is off by default: nothing is requested from Google until you
+      press Accept in the cookie banner.
+    </p>
+
+    <h2 class="font-display mt-12 text-xl sm:text-2xl">Strictly necessary cookies</h2>
+    <p class="mt-4 leading-relaxed">
+      When a staff member or studio partner signs in to the password-protected admin or vendor area, we set one
+      session cookie to keep them signed in. It is set only at that moment — ordinary visitors browsing, shopping,
+      or subscribing to the newsletter never receive it. This cookie is essential (not optional): it can't be
+      disabled without breaking sign-in, is not readable by any script, and is never used for tracking or
+      advertising.
+    </p>
+
+    <h2 class="font-display mt-12 text-xl sm:text-2xl">Local storage (not a cookie)</h2>
+    <p class="mt-4 leading-relaxed">
+      Your shopping cart is kept in your browser's local storage, on your own device only. It stores the items and
+      quantities you've added — nothing about you personally — and is never sent to our servers until you begin
+      checkout. Clearing your browser's site data will empty your cart. Your cookie choice (Accept or Decline) is
+      also remembered in local storage, so you aren't asked again on every page.
+    </p>
+
+    <h2 class="font-display mt-12 text-xl sm:text-2xl">Payment (Stripe)</h2>
+    <p class="mt-4 leading-relaxed">
+      When you check out, you're redirected to Stripe's own secure, hosted payment page. Any cookies set at that
+      point belong to Stripe and are covered by
+      {' '}<a href="https://stripe.com/cookies-policy" target="_blank" rel="noopener noreferrer" class="text-(--color-clay) hover:underline">Stripe's own cookie policy</a>,
+      not this website's.
+    </p>
+
+    <h2 class="font-display mt-12 text-xl sm:text-2xl">Analytics (Google Analytics 4) — only with your consent</h2>
+    <p class="mt-4 leading-relaxed">
+      If you press Accept, the site loads Google Analytics 4 and sets two analytics cookies on your device,
+      <code>_ga</code> and <code>_ga_&lt;ID&gt;</code>, each lasting up to two years. They let us count visits and
+      see, in aggregate, which pages are viewed, roughly where visitors come from, and which device and browser they
+      use. We have switched off Google's advertising features and Google signals, and we remove sensitive parameters
+      (such as a checkout session ID) from the page address before it is sent. If you press Decline — or don't
+      choose — the Google Analytics script is never loaded and no analytics cookies are set.
+    </p>
+    <p class="mt-4 leading-relaxed">
+      Analytics data that is tied to cookies or identifiers is kept for up to 14 months from a visitor's most recent
+      visit, and detailed event-level data for 2 months. Aggregated statistics, which don't identify anyone, are
+      kept longer.
+    </p>
+    <p class="mt-4 leading-relaxed">
+      Google may process this data outside the European Economic Area.
+      <strong class="text-(--color-clay)">[Confirm]</strong> the international-transfer safeguards that apply.
+    </p>
+
+    <h2 class="font-display mt-12 text-xl sm:text-2xl">Marketing</h2>
+    <p class="mt-4 leading-relaxed">
+      We do not use advertising or marketing cookies of any kind.
+    </p>
+
+    <h2 class="font-display mt-12 text-xl sm:text-2xl">Cookie consent</h2>
+    <p class="mt-4 leading-relaxed">
+      The first time you visit, a banner asks whether you accept analytics cookies. Accepting and declining are
+      equally easy, and the rest of the site works the same either way. You can change your mind at any time using
+      “Cookie settings” in the footer of every page — declining after previously accepting removes the analytics
+      cookies from your browser. Strictly necessary cookies and local storage don't need consent under frameworks
+      like the GDPR/ePrivacy rules. <strong class="text-(--color-clay)">[Confirm]</strong> this set-up against your
+      applicable jurisdiction if you'd like additional assurance.
+    </p>
+
+    <h2 class="font-display mt-12 text-xl sm:text-2xl">Managing cookies &amp; local storage</h2>
+    <p class="mt-4 leading-relaxed">
+      Use “Cookie settings” in the footer to change your analytics choice at any time. You can also clear cookies
+      and local storage for this site through your browser's settings. Doing so will sign you out of the admin or
+      vendor area (if you were signed in), empty your shopping cart, and reset your cookie choice.
+    </p>
+
+    <h2 class="font-display mt-12 text-xl sm:text-2xl">More about your data</h2>
+    <p class="mt-4 leading-relaxed">
+      For how we handle the personal information you provide directly (contact form, newsletter, orders), see our
+      {' '}<a href="/privacy" class="text-(--color-clay) hover:underline">Privacy Policy</a>.
+    </p>
+
+    <h2 class="font-display mt-12 text-xl sm:text-2xl">Contact</h2>
+    <p class="mt-4 leading-relaxed">
+      {contactEmail ? (
+        <>Questions about this page can be sent to <a href={`mailto:${contactEmail}`} class="text-(--color-clay) hover:underline">{contactEmail}</a>.</>
+      ) : (
+        <>Questions about this page can be sent via our <a href="/contact" class="text-(--color-clay) hover:underline">contact page</a>.</>
+      )}
+    </p>
+  </div>
+</Layout>

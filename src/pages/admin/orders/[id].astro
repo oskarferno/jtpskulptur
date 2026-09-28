@@ -1,0 +1,150 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+
+const supabase = Astro.locals.supabase!;
+const { id } = Astro.params;
+
+if (!id) {
+  return Astro.redirect('/admin/orders');
+}
+
+const { data: order } = await supabase.from('orders').select('*').eq('id', id).single();
+
+if (!order) {
+  return Astro.redirect('/admin/orders');
+}
+
+const { data: items } = await supabase
+  .from('order_items')
+  .select('id, product_name, sku, unit_price, quantity, shipped_at, tracking_number, tracking_url, vendor:vendor_id (name)')
+  .eq('order_id', id);
+
+const address = order.shipping_address as Record<string, string> | null;
+
+const PAYMENT_LABELS: Record<string, string> = {
+  pending: 'Reserved — checkout in progress',
+  paid: 'Paid',
+  failed: 'Payment failed',
+  refunded: 'Refunded',
+  expired: 'Reservation expired',
+};
+---
+
+<AdminLayout title={order.order_number}>
+  {order.shipping_address_status === 'review_required' && (
+    <div class="mb-6 border border-red-700 bg-red-50 p-4 text-sm">
+      <p class="font-medium text-red-700">Shipping address review required</p>
+      <p class="mt-2 text-(--color-ink-soft)">
+        The shipping region selected and paid for at checkout doesn't match the country on the address Stripe
+        collected. This order will not proceed to fulfillment or notify any vendor until this is resolved.
+      </p>
+      <dl class="mt-3 space-y-1">
+        <div class="flex gap-2"><dt class="w-48 text-(--color-ink-soft)">Selected region:</dt><dd>{order.shipping_region ?? '—'}</dd></div>
+        <div class="flex gap-2"><dt class="w-48 text-(--color-ink-soft)">Shipping rate used:</dt><dd>{order.shipping_region ?? '—'}</dd></div>
+        <div class="flex gap-2"><dt class="w-48 text-(--color-ink-soft)">Shipping address country:</dt><dd>{address?.country ?? '—'}</dd></div>
+        <div class="flex gap-2"><dt class="w-48 text-(--color-ink-soft)">Status:</dt><dd class="text-red-700">Address mismatch — review required</dd></div>
+      </dl>
+    </div>
+  )}
+
+  <div class="grid grid-cols-2 gap-4 text-sm">
+    <div>
+      <p class="text-(--color-ink-soft)">Customer</p>
+      <p>{order.customer_name ?? '—'} · {order.customer_email}</p>
+    </div>
+    <div>
+      <p class="text-(--color-ink-soft)">Status</p>
+      <p>Payment: <strong>{PAYMENT_LABELS[order.payment_status] ?? order.payment_status}</strong> — Fulfillment: <strong>{order.fulfillment_status}</strong></p>
+    </div>
+    <div>
+      <p class="text-(--color-ink-soft)">Total</p>
+      <p>{order.total.toFixed(2)} {order.currency} (subtotal {order.subtotal.toFixed(2)} + shipping {order.shipping.toFixed(2)})</p>
+    </div>
+    <div>
+      <p class="text-(--color-ink-soft)">Shipping address</p>
+      {address ? (
+        <p>{address.name}, {address.line1}{address.line2 ? `, ${address.line2}` : ''}, {address.city} {address.postal_code}, {address.country}</p>
+      ) : (
+        <p>—</p>
+      )}
+    </div>
+  </div>
+
+  <table class="mt-8 w-full border border-(--color-line) text-sm">
+    <thead>
+      <tr class="border-b border-(--color-line) text-left text-(--color-ink-soft)">
+        <th class="px-3 py-2">Item</th>
+        <th class="px-3 py-2">Vendor</th>
+        <th class="px-3 py-2">Qty</th>
+        <th class="px-3 py-2">Price</th>
+        <th class="px-3 py-2">Shipped</th>
+      </tr>
+    </thead>
+    <tbody>
+      {items?.map((item) => (
+        <tr class="border-b border-(--color-line) last:border-0" data-item-id={item.id}>
+          <td class="px-3 py-2">{item.product_name} {item.sku && <span class="text-(--color-ink-faint)">({item.sku})</span>}</td>
+          <td class="px-3 py-2 text-(--color-ink-soft)">{item.vendor?.name ?? 'JTP'}</td>
+          <td class="px-3 py-2">{item.quantity}</td>
+          <td class="px-3 py-2">{item.unit_price.toFixed(2)}</td>
+          <td class="px-3 py-2">
+            {item.shipped_at ? (
+              <span>{new Date(item.shipped_at).toLocaleDateString('en-GB')}{item.tracking_number ? ` — ${item.tracking_number}` : ''}</span>
+            ) : (
+              <form class="ship-item-form flex flex-wrap items-center gap-2">
+                <input type="text" name="trackingNumber" placeholder="Tracking #" class="w-28 border border-(--color-line) bg-transparent px-2 py-1 text-xs" />
+                <button type="submit" class="text-xs text-(--color-clay) hover:underline">Mark shipped</button>
+              </form>
+            )}
+          </td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+
+  <div class="mt-8 max-w-md">
+    <label for="internal_note" class="block text-sm text-(--color-ink-soft)">Internal note (never shown to the customer)</label>
+    <textarea id="internal_note" rows="3"
+      class="mt-1 w-full border border-(--color-line) bg-transparent px-3 py-2 focus:border-(--color-clay) focus:outline-none">{order.internal_note ?? ''}</textarea>
+    <button id="save-note" type="button" class="mt-2 border border-(--color-ink) px-4 py-1.5 text-sm uppercase tracking-[0.04em] hover:bg-(--color-ink) hover:text-(--color-paper)">
+      Save note
+    </button>
+    <span id="note-status" class="ml-2 text-sm text-(--color-ink-soft)"></span>
+  </div>
+
+  <script is:inline define:vars={{ orderId: order.id }}>
+    document.querySelectorAll('.ship-item-form').forEach((form) => {
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const row = form.closest('[data-item-id]');
+        const itemId = row?.dataset.itemId;
+        if (!itemId) return;
+        const trackingNumber = new FormData(form).get('trackingNumber');
+        const button = form.querySelector('button');
+        button.disabled = true;
+        const res = await fetch(`/api/admin/orders/${orderId}/ship-item`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ itemId, trackingNumber: trackingNumber || undefined }),
+        });
+        if (res.ok) {
+          window.location.reload();
+        } else {
+          button.disabled = false;
+        }
+      });
+    });
+
+    document.getElementById('save-note').addEventListener('click', async () => {
+      const note = document.getElementById('internal_note').value;
+      const status = document.getElementById('note-status');
+      status.textContent = 'Saving…';
+      const res = await fetch(`/api/admin/orders/${orderId}/note`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ internal_note: note }),
+      });
+      status.textContent = res.ok ? 'Saved.' : 'Failed.';
+    });
+  </script>
+</AdminLayout>

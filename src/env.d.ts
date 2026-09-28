@@ -8,6 +8,7 @@ declare global {
     interface Locals {
       user?: User;
       supabase?: SupabaseClient<Database>;
+      vendorId?: string;
     }
   }
 }

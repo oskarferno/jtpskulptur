@@ -1,0 +1,85 @@
+---
+import { publicMediaUrl, type Bucket } from '../../lib/media';
+
+// One row of a drag-to-reorder artwork list on Admin → Portfolio. Pairs with
+// initSortable() in src/lib/admin-sortable.ts, which finds the data-*
+// attributes below. `variant` picks which list it sits in: the full Portfolio
+// order (with the "Set as homepage hero" action) or the Featured order.
+interface Props {
+  artwork: {
+    id: string;
+    title: string;
+    published: boolean;
+    featured: boolean;
+    availability: string;
+    inventory: number | null;
+    is_homepage_hero: boolean;
+    primary_media: { storage_path: string; bucket: Bucket } | null;
+  };
+  variant: 'portfolio' | 'featured';
+}
+
+const { artwork: a, variant } = Astro.props;
+---
+
+<li data-id={a.id} class="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-3 hover:bg-(--color-paper-raised) sm:px-4">
+  <button type="button" data-drag-handle aria-label={`Drag to reorder ${a.title}`} title="Drag to reorder"
+    class="flex h-10 w-8 flex-shrink-0 cursor-grab touch-none items-center justify-center text-(--color-ink-faint) hover:text-(--color-ink) active:cursor-grabbing">
+    <svg width="14" height="18" viewBox="0 0 14 18" fill="currentColor" aria-hidden="true">
+      <circle cx="4" cy="3" r="1.5" /><circle cx="10" cy="3" r="1.5" />
+      <circle cx="4" cy="9" r="1.5" /><circle cx="10" cy="9" r="1.5" />
+      <circle cx="4" cy="15" r="1.5" /><circle cx="10" cy="15" r="1.5" />
+    </svg>
+  </button>
+  <span data-position class="w-6 flex-shrink-0 text-right text-sm tabular-nums text-(--color-ink-faint)"></span>
+
+  <a href={`/admin/portfolio/${a.id}`} class="flex min-w-0 flex-1 basis-40 items-center gap-3 sm:gap-4">
+    {a.primary_media && (
+      <img src={publicMediaUrl(a.primary_media.bucket, a.primary_media.storage_path)} alt=""
+        class="h-12 w-12 flex-shrink-0 object-cover" />
+    )}
+    {/* Stacked (title, then its badges) on phones so long titles aren't squeezed to nothing; one row from sm up, as before. */}
+    <span class="flex min-w-0 flex-1 flex-col gap-1 sm:flex-row sm:items-center sm:gap-4">
+      <span class="truncate sm:flex-1">{a.title}</span>
+      <span class="flex flex-wrap items-center gap-2 sm:gap-4">
+        {variant === 'portfolio' && a.availability === 'available' && (
+          <span class="border border-(--color-clay) px-2 py-0.5 text-xs uppercase tracking-[0.04em] text-(--color-clay)">
+            Buy{a.inventory === 0 ? ' · 0 in stock' : ''}
+          </span>
+        )}
+        {variant === 'portfolio' && a.availability === 'sold' && (
+          <span class="border border-(--color-ink-faint) px-2 py-0.5 text-xs uppercase tracking-[0.04em] text-(--color-ink-faint)">Sold</span>
+        )}
+        <span class="text-sm text-(--color-ink-soft)">
+          {a.published ? 'published' : 'draft'}
+          {variant === 'portfolio' && a.featured ? ' · featured' : ''}
+        </span>
+      </span>
+    </span>
+  </a>
+
+  {variant === 'portfolio' && (
+    a.is_homepage_hero ? (
+      <span class="flex-shrink-0 border border-(--color-clay) px-2 py-1 text-xs uppercase tracking-[0.04em] text-(--color-clay)">
+        ★ Homepage Hero
+      </span>
+    ) : (
+      <button type="button" data-set-hero data-artwork-id={a.id}
+        class="flex-shrink-0 text-xs text-(--color-ink-soft) hover:text-(--color-clay) hover:underline">
+        Set as homepage hero
+      </button>
+    )
+  )}
+  {variant === 'featured' && a.is_homepage_hero && (
+    <span class="flex-shrink-0 border border-(--color-clay) px-2 py-1 text-xs uppercase tracking-[0.04em] text-(--color-clay)">
+      ★ Hero
+    </span>
+  )}
+
+  <span class="ml-auto flex flex-shrink-0 items-center">
+    <button type="button" data-move-up aria-label={`Move ${a.title} up`}
+      class="flex h-10 w-9 items-center justify-center text-(--color-ink-soft) hover:text-(--color-clay) disabled:opacity-25 disabled:hover:text-(--color-ink-soft)">↑</button>
+    <button type="button" data-move-down aria-label={`Move ${a.title} down`}
+      class="flex h-10 w-9 items-center justify-center text-(--color-ink-soft) hover:text-(--color-clay) disabled:opacity-25 disabled:hover:text-(--color-ink-soft)">↓</button>
+  </span>
+</li>

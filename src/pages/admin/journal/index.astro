@@ -6,29 +6,45 @@ const { data: posts } = await supabase
   .from('posts')
   .select('id, title, slug, published, published_at')
   .order('created_at', { ascending: false });
+
+const published = (posts ?? []).filter((p) => p.published).sort((a, b) => (b.published_at ?? '').localeCompare(a.published_at ?? ''));
+const drafts = (posts ?? []).filter((p) => !p.published);
+const groups = [
+  { label: 'Published', items: published },
+  { label: 'Drafts', items: drafts },
+].filter((g) => g.items.length > 0);
 ---
 
-<AdminLayout title="News / Journal">
+<AdminLayout title="Journal">
   <div class="flex items-center justify-between">
     <p class="text-sm text-(--color-ink-soft)">{posts?.length ?? 0} posts</p>
     <a href="/admin/journal/new"
       class="border border-(--color-ink) px-4 py-2 text-sm tracking-wide uppercase hover:bg-(--color-ink) hover:text-(--color-paper)">
-      + New post
+      + New article
     </a>
   </div>
 
   {
-    posts && posts.length > 0 ? (
-      <ul class="mt-6 divide-y divide-(--color-line) border border-(--color-line)">
-        {posts.map((p) => (
-          <li>
-            <a href={`/admin/journal/${p.id}`} class="flex items-center justify-between px-4 py-3 hover:bg-(--color-paper-raised)">
-              <span>{p.title}</span>
-              <span class="text-sm text-(--color-ink-soft)">{p.published ? 'published' : 'draft'}</span>
-            </a>
-          </li>
-        ))}
-      </ul>
+    groups.length > 0 ? (
+      groups.map((group) => (
+        <div class="mt-8 first:mt-6">
+          <p class="mb-2 text-xs tracking-[0.04em] text-(--color-ink-soft) uppercase">{group.label}</p>
+          <ul class="divide-y divide-(--color-line) border border-(--color-line)">
+            {group.items.map((p) => (
+              <li>
+                <a href={`/admin/journal/${p.id}`} class="flex items-center justify-between px-4 py-3 hover:bg-(--color-paper-raised)">
+                  <span>{p.title}</span>
+                  <span class="text-sm text-(--color-ink-soft)">
+                    {p.published && p.published_at
+                      ? new Date(p.published_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+                      : 'draft'}
+                  </span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))
     ) : (
       <p class="mt-6 text-(--color-ink-soft)">No posts yet.</p>
     )

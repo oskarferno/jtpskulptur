@@ -2,16 +2,73 @@
 import '../styles/global.css';
 import Nav from '../components/Nav.astro';
 import Footer from '../components/Footer.astro';
+import Analytics from '../components/Analytics.astro';
+import { getSupabaseClient } from '../lib/supabase';
+import { getSiteUrl } from '../lib/site-url';
+import { isProductionHost } from '../lib/production-host';
 
 interface Props {
   title: string;
   description?: string;
   ogImage?: string;
   noindex?: boolean;
+  jsonLd?: Record<string, unknown>;
 }
 
-const { title, description, ogImage, noindex = false } = Astro.props;
-const canonicalUrl = new URL(Astro.url.pathname, Astro.site);
+const { title, description, ogImage, noindex = false, jsonLd } = Astro.props;
+// See lib/site-url.ts — this is the current actual host (dev/workers.dev)
+// until PUBLIC_SITE_URL is set at production cutover, not Astro.site (a
+// static build-time value already permanently pointed at jtpskulptur.com).
+const siteOrigin = getSiteUrl(Astro.request);
+// Always the slash-free form (root stays "/"), matching the sitemap. Deriving
+// this straight from the request path made /about/ declare itself canonical,
+// contradicting /about and leaving Google to pick between two self-canonical
+// duplicates. middleware.ts also 301s trailing-slash URLs to this same form.
+const canonicalPath = '/' + Astro.url.pathname.replace(/^\/+|\/+$/g, '');
+const canonicalUrl = new URL(canonicalPath, siteOrigin);
+
+// Analytics (consent banner + Google tag) exists only on the real production
+// hostname — see lib/production-host.ts. Everywhere else (localhost,
+// workers.dev, previews) neither the banner nor any Google code is rendered.
+const analyticsEnabled = isProductionHost(Astro.url.hostname);
+
+// Nav and Footer each used to fetch their own data independently, which
+// Astro's top-down SSR rendering turns into a sequential waterfall (Nav's
+// queries fully resolve before Footer's even start). Fetching everything
+// they need here, in one Promise.all, collapses that into a single wave.
+const supabase = getSupabaseClient();
+const [
+  { count: exhibitionCount },
+  { count: postCount },
+  { count: availableArtworkCount },
+  { count: productCount },
+  { data: socialLinks },
+  { data: footerSettings },
+] = await Promise.all([
+  supabase.from('exhibitions').select('id', { count: 'exact', head: true }).eq('published', true),
+  supabase.from('posts').select('id', { count: 'exact', head: true }).eq('published', true),
+  // Sculptures are sold directly from `artworks` (see migration 0017) — the
+  // Shop/Cart nav links must reflect that they're purchasable there too,
+  // not just non-artwork merch in `products`.
+  supabase.from('artworks').select('id', { count: 'exact', head: true }).eq('published', true).eq('availability', 'available').gt('inventory', 0),
+  supabase.from('products').select('id', { count: 'exact', head: true }).eq('active', true),
+  supabase.from('social_links').select('id, label, url').eq('published', true).order('display_order'),
+  supabase.from('site_settings').select('contact_email, tagline').single(),
+]);
+const shopItemCount = (availableArtworkCount ?? 0) + (productCount ?? 0);
+const siteJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'WebSite',
+  name: 'JTP Skulptur',
+  url: `${siteOrigin}/`,
+};
+
+// JSON.stringify doesn't escape `<`, so admin-authored text containing
+// `</script>` could break out of the tag. Escaping it to < is the
+// standard mitigation for JSON embedded via set:html.
+function jsonLdToScript(data: Record<string, unknown>) {
+  return JSON.stringify(data).replace(/</g, '\\u003c');
+}
 ---
 
 <html lang="en">
@@ -22,6 +79,7 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.site);
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <meta name="theme-color" content="#f4efe6" />
     <meta name="generator" content={Astro.generator} />
 
     <title>{title}</title>
@@ -35,12 +93,25 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.site);
     <meta property="og:url" content={canonicalUrl} />
     {ogImage && <meta property="og:image" content={ogImage} />}
     <meta name="twitter:card" content="summary_large_image" />
+
+    {Astro.url.pathname === '/' && (
+      <script is:inline type="application/ld+json" set:html={jsonLdToScript(siteJsonLd)} />
+    )}
+    {jsonLd && <script is:inline type="application/ld+json" set:html={jsonLdToScript(jsonLd)} />}
   </head>
   <body class="min-h-screen bg-(--color-paper) text-(--color-ink) antialiased">
-    <Nav />
+    <Nav exhibitionCount={exhibitionCount} postCount={postCount} shopItemCount={shopItemCount} />
     <main>
       <slot />
     </main>
-    <Footer />
+    <Footer
+      socialLinks={socialLinks}
+      settings={footerSettings}
+      exhibitionCount={exhibitionCount}
+      postCount={postCount}
+      shopItemCount={shopItemCount}
+      analyticsEnabled={analyticsEnabled}
+    />
+    {analyticsEnabled && <Analytics />}
   </body>
 </html>

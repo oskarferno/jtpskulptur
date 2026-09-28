@@ -1,7 +1,9 @@
 ---
+import { Image } from 'astro:assets';
 import Layout from '../../layouts/Layout.astro';
 import { getSupabaseClient } from '../../lib/supabase';
-import { publicMediaUrl } from '../../lib/media';
+import { publicMediaUrl, scaledHeight } from '../../lib/media';
+import { renderMarkdown } from '../../lib/markdown';
 
 const supabase = getSupabaseClient();
 const { slug } = Astro.params;
@@ -28,14 +30,26 @@ if (!post) {
 const images = (post.post_images ?? []).sort((a, b) => a.display_order - b.display_order);
 const title = post.seo_title ?? `${post.title} — JTP Skulptur`;
 const ogImage = post.cover ? publicMediaUrl(post.cover.bucket, post.cover.storage_path) : undefined;
+// Body is authored as Markdown in Admin (same convention as newsletter
+// campaigns — see lib/email-templates.ts / admin/newsletter) — paragraphs,
+// # headings, **bold**, _italic_, and [links](url) all just work, with no
+// separate rich-text editor needed. Plain text written before this existed
+// still renders the same as before: blank-line-separated lines become their
+// own paragraphs either way.
+const bodyHtml = renderMarkdown(post.body);
 ---
 
 <Layout title={title} description={post.seo_description ?? post.excerpt ?? undefined} ogImage={ogImage}>
   <article>
     {post.cover && (
-      <img
+      <Image
         src={publicMediaUrl(post.cover.bucket, post.cover.storage_path)}
         alt={post.cover.alt_text ?? post.title}
+        width={1600}
+        height={1000}
+        densities={[1, 2]}
+        quality={80}
+        fetchpriority="high"
         class="h-[50svh] w-full object-cover object-top sm:h-[65svh]"
       />
     )}
@@ -45,20 +59,20 @@ const ogImage = post.cover ? publicMediaUrl(post.cover.bucket, post.cover.storag
         <p class="caption">{new Date(post.published_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
       )}
       <h1 class="font-display mt-3 text-3xl sm:text-4xl">{post.title}</h1>
-      {post.body && (
-        <div class="mt-8 space-y-6 leading-relaxed">
-          {post.body.split('\n').filter(Boolean).map((p) => <p>{p}</p>)}
-        </div>
-      )}
+      {bodyHtml && <div class="journal-body mt-8 leading-relaxed" set:html={bodyHtml} />}
     </div>
 
     {images.length > 0 && (
       <div class="mx-auto max-w-(--measure-full) space-y-4 px-4 pb-16 sm:px-8">
         {images.map(({ media }) => media && (
           <figure>
-            <img
+            <Image
               src={publicMediaUrl(media.bucket, media.storage_path)}
               alt={media.alt_text ?? post.title}
+              width={1400}
+              height={scaledHeight(1400, media)}
+              densities={[1, 1.5]}
+              quality={80}
               loading="lazy"
               class="mx-auto max-h-[85vh] w-full bg-(--color-paper-raised) object-contain"
             />
@@ -73,3 +87,47 @@ const ogImage = post.cover ? publicMediaUrl(post.cover.bucket, post.cover.storag
     </div>
   </article>
 </Layout>
+
+<style>
+  /* Tailwind's preflight strips default heading/list/link styling — this is
+     raw HTML rendered from the post's Markdown body (set:html), so it needs
+     minimal readable styles back that match the site's existing type scale,
+     same approach already used for newsletter content (see
+     admin/newsletter/[id].astro's .prose-newsletter). Plain paragraphs
+     (the only thing any existing post uses) render identically to before. */
+  .journal-body :global(p) {
+    margin-bottom: 1.5em;
+  }
+  .journal-body :global(h1),
+  .journal-body :global(h2),
+  .journal-body :global(h3) {
+    font-family: var(--font-serif);
+    font-weight: 400;
+    margin-top: 1.5em;
+    margin-bottom: 0.5em;
+  }
+  .journal-body :global(h1) {
+    font-size: 1.5em;
+  }
+  .journal-body :global(h2) {
+    font-size: 1.25em;
+  }
+  .journal-body :global(ul),
+  .journal-body :global(ol) {
+    margin-bottom: 1.5em;
+    padding-left: 1.25em;
+  }
+  .journal-body :global(ul) {
+    list-style: disc;
+  }
+  .journal-body :global(ol) {
+    list-style: decimal;
+  }
+  .journal-body :global(a) {
+    color: var(--color-clay);
+    text-decoration: underline;
+  }
+  .journal-body :global(strong) {
+    font-weight: 600;
+  }
+</style>

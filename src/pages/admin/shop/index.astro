@@ -1,0 +1,49 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { publicMediaUrl } from '../../../lib/media';
+
+const supabase = Astro.locals.supabase!;
+
+const { data: products } = await supabase
+  .from('products')
+  .select('id, name, price, currency, inventory, active, featured, display_order, primary_image:primary_image_id (storage_path, bucket)')
+  .order('display_order');
+---
+
+<AdminLayout title="Shop / Products">
+  <p class="text-sm text-(--color-ink-soft)">
+    Non-artwork items only. Sculptures are managed from <a href="/admin/portfolio" class="text-(--color-clay) hover:underline">Portfolio</a> — setting an artwork's availability to Available is what puts it in the Shop.
+  </p>
+  <div class="mt-6 flex items-center justify-between">
+    <p class="text-sm text-(--color-ink-soft)">{products?.length ?? 0} products</p>
+    <a href="/admin/shop/new"
+      class="border border-(--color-ink) px-4 py-2 text-sm tracking-wide uppercase hover:bg-(--color-ink) hover:text-(--color-paper)">
+      + New product
+    </a>
+  </div>
+
+  {
+    products && products.length > 0 ? (
+      <ul class="mt-6 divide-y divide-(--color-line) border border-(--color-line)">
+        {products.map((p) => (
+          <li>
+            <a href={`/admin/shop/${p.id}`} class="flex items-center gap-4 px-4 py-3 hover:bg-(--color-paper-raised)">
+              {p.primary_image && (
+                <img src={publicMediaUrl(p.primary_image.bucket, p.primary_image.storage_path)} alt=""
+                  class="h-12 w-12 flex-shrink-0 object-cover" />
+              )}
+              <span class="flex-1">{p.name}</span>
+              <span class="text-sm text-(--color-ink-soft)">{p.price.toFixed(0)} {p.currency} · {p.inventory} in stock</span>
+              <span class="text-sm text-(--color-ink-soft)">
+                {p.active ? 'active' : 'inactive'}
+                {p.featured ? ' · featured' : ''}
+              </span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    ) : (
+      <p class="mt-6 text-(--color-ink-soft)">No products yet.</p>
+    )
+  }
+</AdminLayout>

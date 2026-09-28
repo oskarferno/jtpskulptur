@@ -1,5 +1,7 @@
 ---
 import AdminLayout from '../../../layouts/AdminLayout.astro';
+import ImagePicker from '../../../components/admin/ImagePicker.astro';
+import { publicMediaUrl } from '../../../lib/media';
 
 const supabase = Astro.locals.supabase!;
 const { id } = Astro.params;
@@ -10,22 +12,36 @@ if (!id) {
 
 const { data: post } = await supabase
   .from('posts')
-  .select('id, title, slug, excerpt, body, published, seo_title, seo_description')
+  .select(
+    `id, title, slug, excerpt, body, published, published_at, seo_title, seo_description,
+     cover_media:cover_media_id (storage_path, bucket, alt_text)`
+  )
   .eq('id', id)
   .single();
 
 if (!post) {
   return Astro.redirect('/admin/journal');
 }
+
+const coverImageUrl = post.cover_media ? publicMediaUrl(post.cover_media.bucket, post.cover_media.storage_path) : null;
 ---
 
 <AdminLayout title={post.title}>
-  <form id="post-form" class="max-w-xl space-y-4" data-post-id={post.id}>
-    <label class="flex items-center gap-2 text-sm">
-      <input type="checkbox" name="published" checked={post.published} />
-      Published
-    </label>
+  <form id="post-form" class="max-w-xl space-y-4" data-post-id={post.id} data-cover-url={coverImageUrl ?? ''}>
+    <div class="flex items-center gap-4 text-sm">
+      <label class="flex items-center gap-2">
+        <input type="checkbox" name="published" checked={post.published} />
+        Published
+      </label>
+      {post.published_at && (
+        <span class="text-(--color-ink-soft)">
+          Publish date: {new Date(post.published_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
+          {' '}(set automatically the first time this was published)
+        </span>
+      )}
+    </div>
 
+    <ImagePicker idPrefix="cover" label="Hero image" helpText="JPG, PNG, or WebP. Max 20MB. Shown at the top of the article, on the Journal overview, the homepage, and as the social-share image." />
     <div>
       <label for="title" class="block text-sm text-(--color-ink-soft)">Title</label>
       <input id="title" name="title" type="text" required value={post.title}
@@ -49,6 +65,12 @@ if (!post) {
       <label for="body" class="block text-sm text-(--color-ink-soft)">Body</label>
       <textarea id="body" name="body" rows="12"
         class="mt-1 w-full border border-(--color-line) bg-transparent px-3 py-2 focus:border-(--color-clay) focus:outline-none">{post.body ?? ''}</textarea>
+      <p class="caption mt-1">Supports paragraphs, # headings, **bold**, _italic_, and [links](url). Leave a blank line between paragraphs.</p>
+      <button type="button" id="preview-toggle"
+        class="mt-2 border border-(--color-line) px-3 py-1.5 text-xs uppercase tracking-[0.04em] hover:border-(--color-clay) hover:text-(--color-clay)">
+        Preview
+      </button>
+      <div id="body-preview" class="journal-preview mt-4 hidden max-w-lg border border-(--color-line) p-4"></div>
     </div>
 
     <fieldset class="border border-(--color-line) p-4">
@@ -76,16 +98,51 @@ if (!post) {
   </form>
 
   <script>
+    import { renderMarkdown } from '../../../lib/markdown';
+    import { initImagePicker, uploadImage } from '../../../lib/admin-image-picker';
+
     const form = document.getElementById('post-form') as HTMLFormElement;
     const status = document.getElementById('form-status')!;
+    const submitButton = form.querySelector('button[type="submit"]') as HTMLButtonElement;
     const deleteButton = document.getElementById('delete-button');
     const postId = form.dataset.postId;
+
+    const coverPicker = initImagePicker(
+      {
+        fileInput: document.getElementById('cover-file') as HTMLInputElement,
+        preview: document.getElementById('cover-preview') as HTMLImageElement,
+        placeholder: document.getElementById('cover-placeholder')!,
+        removeButton: document.getElementById('cover-remove') as HTMLButtonElement,
+        status: document.getElementById('cover-status')!,
+      },
+      form.dataset.coverUrl || null
+    );
+
+    // Renders exactly what the public article page will (same marked
+    // parse, same Markdown conventions) — client-side only, from whatever
+    // is currently typed, so Jens can check formatting before Save.
+    const bodyInput = document.getElementById('body') as HTMLTextAreaElement;
+    const previewToggle = document.getElementById('preview-toggle') as HTMLButtonElement;
+    const bodyPreview = document.getElementById('body-preview')!;
+    let previewOpen = false;
+
+    previewToggle.addEventListener('click', () => {
+      previewOpen = !previewOpen;
+      if (previewOpen) {
+        bodyPreview.innerHTML = renderMarkdown(bodyInput.value);
+        bodyPreview.classList.remove('hidden');
+        previewToggle.textContent = 'Hide preview';
+      } else {
+        bodyPreview.classList.add('hidden');
+        previewToggle.textContent = 'Preview';
+      }
+    });
 
     form?.addEventListener('submit', async (event) => {
       event.preventDefault();
       const formData = new FormData(form);
 
-      const payload = {
+      const payload: Record<string, unknown> = {
         title: formData.get('title'),
         slug: formData.get('slug'),
         excerpt: formData.get('excerpt') || null,
@@ -95,6 +152,23 @@ if (!post) {
         published: formData.get('published') === 'on',
       };
 
+      submitButton.disabled = true;
+      const title = formData.get('title') as string;
+      const coverState = coverPicker.getState();
+
+      try {
+        if (coverState.kind === 'file') {
+          status.textContent = 'Uploading image…';
+          payload.cover_media_id = await uploadImage(coverState.file, 'site-media', title);
+        } else if (coverState.kind === 'removed') {
+          payload.cover_media_id = null;
+        }
+      } catch (err) {
+        status.textContent = err instanceof Error ? err.message : 'Image upload failed.';
+        submitButton.disabled = false;
+        return;
+      }
+
       status.textContent = 'Saving…';
       const response = await fetch(`/api/admin/posts/${postId}`, {
         method: 'PATCH',
@@ -103,6 +177,10 @@ if (!post) {
       });
       const result = (await response.json().catch(() => ({}))) as { error?: string };
       status.textContent = response.ok ? 'Saved.' : (result.error ?? 'Something went wrong.');
+      submitButton.disabled = false;
+      if (response.ok) {
+        window.location.reload();
+      }
     });
 
     deleteButton?.addEventListener('click', async () => {
@@ -116,3 +194,23 @@ if (!post) {
     });
   </script>
 </AdminLayout>
+
+<style>
+  /* Minimal readable styling for the client-rendered Markdown preview —
+     mirrors the public article page's .journal-body rules (see
+     journal/[slug].astro) so the preview matches what actually publishes. */
+  .journal-preview :global(p) {
+    margin-bottom: 1em;
+  }
+  .journal-preview :global(h1),
+  .journal-preview :global(h2),
+  .journal-preview :global(h3) {
+    font-family: var(--font-serif);
+    margin-top: 1em;
+    margin-bottom: 0.4em;
+  }
+  .journal-preview :global(a) {
+    color: var(--color-clay);
+    text-decoration: underline;
+  }
+</style>

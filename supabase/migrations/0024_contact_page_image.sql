@@ -1,0 +1,25 @@
+-- JTP Skulptur — admin-managed Contact page image.
+--
+-- The Contact page's side image used to be whichever published artwork had
+-- the highest display_order (see src/pages/contact.astro) — never a setting,
+-- so the only way to change it was to reorder or publish artworks, which
+-- affects the whole portfolio. This lets Admin → Site Settings pick a
+-- dedicated image instead, using the same media-reference convention as
+-- about_content.portrait_media_id and the exhibition/post cover images.
+--
+-- Nullable on purpose: NULL means "no custom image", and the Contact page
+-- then falls back to its previous behaviour (the latest artwork's image), so
+-- it never renders empty or broken — including for the row that exists today.
+--
+-- on delete set null: deleting a file from the media library simply clears
+-- this reference (and re-engages the fallback) rather than being blocked or
+-- leaving a dangling id. Same convention as every other *_media_id column.
+--
+-- Access model (nothing new to grant): this adds a column to an existing
+-- table, so it inherits site_settings' existing table-level privileges and
+-- its two existing RLS policies — "public can read site_settings" (the
+-- Contact page reads it anonymously) and "admin can update site_settings"
+-- (is_admin() gates every write). No policy or GRANT change is needed, and
+-- none is loosened.
+alter table site_settings
+  add column contact_image_media_id uuid references media (id) on delete set null;

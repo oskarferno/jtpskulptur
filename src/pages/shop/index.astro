@@ -1,0 +1,107 @@
+---
+import { Image } from 'astro:assets';
+import Layout from '../../layouts/Layout.astro';
+import { getSupabaseClient } from '../../lib/supabase';
+import { publicMediaUrl, scaledHeight } from '../../lib/media';
+
+const supabase = getSupabaseClient();
+
+const { data: settings } = await supabase
+  .from('site_settings')
+  .select('seo_default_title')
+  .single();
+
+// The Shop is a filtered commercial view of the Portfolio, not a separately
+// maintained catalog — sculptures are never created here, only in Portfolio
+// (see migration 0017). `products` remains for non-artwork merch (prints,
+// books) which may not exist yet; both are shown together, artworks first.
+const [{ data: artworks }, { data: products }] = await Promise.all([
+  supabase
+    .from('artworks')
+    .select('id, slug, title, price, currency, media:primary_image_id (bucket, storage_path, alt_text, width, height)')
+    .eq('published', true)
+    .eq('availability', 'available')
+    .gt('inventory', 0)
+    .order('display_order')
+    .order('created_at')
+    .order('id'),
+  supabase
+    .from('products')
+    .select('id, slug, name, price, currency, primary_image:primary_image_id (bucket, storage_path, alt_text, width, height)')
+    .eq('active', true)
+    .gt('inventory', 0)
+    .order('display_order'),
+]);
+
+interface ShopItem {
+  key: string;
+  href: string;
+  name: string;
+  price: number;
+  currency: string;
+  image: { bucket: 'artwork-images' | 'site-media' | 'documents' | 'product-images'; storage_path: string; alt_text: string | null; width: number | null; height: number | null } | null;
+}
+
+const items: ShopItem[] = [
+  ...(artworks ?? [])
+    .filter((a) => a.price !== null)
+    .map((a): ShopItem => ({
+      key: `artwork-${a.id}`,
+      href: `/portfolio/${a.slug}`,
+      name: a.title,
+      price: a.price!,
+      currency: a.currency,
+      image: a.media,
+    })),
+  ...(products ?? []).map((p): ShopItem => ({
+    key: `product-${p.id}`,
+    href: `/shop/${p.slug}`,
+    name: p.name,
+    price: p.price,
+    currency: p.currency,
+    image: p.primary_image,
+  })),
+];
+
+const title = `Shop — ${settings?.seo_default_title ?? 'JTP Skulptur'}`;
+---
+
+<Layout title={title} description="Sculpture, prints, and limited editions from JTP Skulptur.">
+  <header class="mx-auto max-w-(--measure-full) px-4 pt-14 sm:px-8 sm:pt-20">
+    <h1 class="font-display text-3xl sm:text-5xl">Shop</h1>
+  </header>
+
+  {
+    items.length > 0 ? (
+      <div class="mx-auto grid max-w-(--measure-full) grid-cols-2 gap-4 px-4 pt-10 pb-24 sm:grid-cols-3 sm:gap-6 sm:px-8 sm:pt-14 sm:pb-32 lg:grid-cols-4">
+        {items.map((item) => (
+          <a href={item.href} class="group reveal block">
+            {item.image && (
+              <Image
+                src={publicMediaUrl(item.image.bucket, item.image.storage_path)}
+                alt={item.image.alt_text ?? item.name}
+                width={700}
+                height={scaledHeight(700, item.image)}
+                densities={[1, 1.5, 2]}
+                quality={80}
+                loading="lazy"
+                class="aspect-[4/5] w-full bg-(--color-paper-raised) object-cover object-top transition-transform duration-700 group-hover:scale-[1.015]"
+              />
+            )}
+            <p class="mt-3 text-sm">{item.name}</p>
+            <p class="text-sm text-(--color-ink-faint)">{item.price.toFixed(0)} {item.currency}</p>
+          </a>
+        ))}
+      </div>
+    ) : (
+      <p class="mx-auto max-w-(--measure-full) px-4 py-24 text-center text-(--color-ink-soft) sm:px-8">
+        The shop is coming soon.
+      </p>
+    )
+  }
+
+  <script>
+    import { initReveal } from '../../lib/reveal';
+    initReveal();
+  </script>
+</Layout>

@@ -1,9 +1,12 @@
 ---
 import AdminLayout from '../../../layouts/AdminLayout.astro';
+import ImagePicker from '../../../components/admin/ImagePicker.astro';
 ---
 
 <AdminLayout title="New artwork">
   <form id="new-artwork-form" class="max-w-md space-y-4">
+    <ImagePicker idPrefix="primary" label="Artwork image" helpText="JPG, PNG, or WebP. Max 20MB. You can also add this after creating the artwork." />
+
     <div>
       <label for="title" class="block text-sm text-(--color-ink-soft)">Title</label>
       <input id="title" name="title" type="text" required
@@ -15,19 +18,33 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
         placeholder="lowercase-with-hyphens"
         class="mt-1 w-full border border-(--color-line) bg-transparent px-3 py-2 focus:border-(--color-clay) focus:outline-none" />
     </div>
-    <button type="submit"
-      class="border border-(--color-ink) px-6 py-2 text-sm tracking-wide uppercase hover:bg-(--color-ink) hover:text-(--color-paper)">
+    <button type="submit" id="submit-button"
+      class="border border-(--color-ink) px-6 py-2 text-sm tracking-wide uppercase hover:bg-(--color-ink) hover:text-(--color-paper) disabled:cursor-not-allowed disabled:opacity-40">
       Create
     </button>
     <p id="form-status" role="status" class="text-sm"></p>
   </form>
 
   <script>
+    import { initImagePicker, uploadImage } from '../../../lib/admin-image-picker';
+
     const form = document.getElementById('new-artwork-form') as HTMLFormElement;
     const status = document.getElementById('form-status')!;
+    const submitButton = document.getElementById('submit-button') as HTMLButtonElement;
     const titleInput = document.getElementById('title') as HTMLInputElement;
     const slugInput = document.getElementById('slug') as HTMLInputElement;
     let slugEdited = false;
+
+    const primaryPicker = initImagePicker(
+      {
+        fileInput: document.getElementById('primary-file') as HTMLInputElement,
+        preview: document.getElementById('primary-preview') as HTMLImageElement,
+        placeholder: document.getElementById('primary-placeholder')!,
+        removeButton: document.getElementById('primary-remove') as HTMLButtonElement,
+        status: document.getElementById('primary-status')!,
+      },
+      null
+    );
 
     slugInput.addEventListener('input', () => { slugEdited = true; });
     titleInput.addEventListener('input', () => {
@@ -42,6 +59,7 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
       const formData = new FormData(form);
+      submitButton.disabled = true;
       status.textContent = 'Creating…';
 
       const response = await fetch('/api/admin/artworks', {
@@ -54,11 +72,35 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
         error?: string;
       };
 
-      if (response.ok && result.artwork) {
-        window.location.href = `/admin/portfolio/${result.artwork.id}`;
-      } else {
+      if (!response.ok || !result.artwork) {
         status.textContent = result.error ?? 'Something went wrong.';
+        submitButton.disabled = false;
+        return;
       }
+
+      const artworkId = result.artwork.id;
+      const pickerState = primaryPicker.getState();
+
+      if (pickerState.kind === 'file') {
+        status.textContent = 'Uploading image…';
+        try {
+          const mediaId = await uploadImage(pickerState.file, 'artwork-images', formData.get('title') as string);
+          const attachResponse = await fetch(`/api/admin/artworks/${artworkId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ primary_image_id: mediaId }),
+          });
+          if (!attachResponse.ok) throw new Error('Could not attach the uploaded image.');
+        } catch (err) {
+          // The artwork itself was created successfully — don't strand the
+          // admin on a form with no way forward. Let them retry the image
+          // from the edit page, which has the same upload UI.
+          status.textContent = `Artwork created, but the image couldn't be uploaded (${err instanceof Error ? err.message : 'unknown error'}). You can try again on the next page.`;
+          await new Promise((r) => setTimeout(r, 2000));
+        }
+      }
+
+      window.location.href = `/admin/portfolio/${artworkId}`;
     });
   </script>
 </AdminLayout>

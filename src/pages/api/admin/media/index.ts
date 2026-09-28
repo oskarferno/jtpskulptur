@@ -4,11 +4,12 @@ import type { Bucket } from '../../../../lib/media';
 
 export const prerender = false;
 
-const ALLOWED_BUCKETS: Bucket[] = ['artwork-images', 'site-media', 'documents'];
+const ALLOWED_BUCKETS: Bucket[] = ['artwork-images', 'site-media', 'documents', 'product-images'];
 const ALLOWED_MIME: Record<Bucket, string[]> = {
   'artwork-images': ['image/jpeg', 'image/png', 'image/webp'],
   'site-media': ['image/jpeg', 'image/png', 'image/webp'],
   documents: ['application/pdf'],
+  'product-images': ['image/jpeg', 'image/png', 'image/webp'],
 };
 
 function jsonError(message: string, status = 400) {

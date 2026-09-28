@@ -1,0 +1,116 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { getSupabaseClient } from '../lib/supabase';
+
+const supabase = getSupabaseClient();
+const { data: settings } = await supabase.from('site_settings').select('contact_email').single();
+const contactEmail = settings?.contact_email ?? null;
+
+const LAST_UPDATED = '17 September 2026';
+---
+
+<Layout title="Terms — JTP Skulptur" description="The terms and conditions for using the JTP Skulptur website and purchasing sculpture or prints.">
+  <header class="mx-auto max-w-(--measure-full) px-4 pt-14 sm:px-8 sm:pt-20">
+    <p class="caption">Legal</p>
+    <h1 class="font-display mt-3 text-3xl sm:text-5xl">Terms &amp; Conditions</h1>
+  </header>
+
+  <div class="mx-auto max-w-(--measure-content) px-4 py-10 sm:px-8 sm:py-14">
+    <p class="caption">Last updated {LAST_UPDATED}</p>
+
+    <div class="mt-6 border-l-2 border-(--color-clay) pl-6 text-sm leading-relaxed text-(--color-ink-soft)">
+      <p>
+        These terms cover use of this website and purchases made through it. They have been drafted from the site's
+        current functionality and are <strong>not</strong> a legally reviewed document. Sections marked
+        {' '}<strong class="text-(--color-clay)">[Confirm]</strong> describe policies (shipping windows, returns,
+        governing law, and similar) that have not yet been finalised, and must be reviewed by the site owner — ideally
+        with legal advice — before this page is relied upon or launched publicly.
+      </p>
+    </div>
+
+    <h2 class="font-display mt-12 text-xl sm:text-2xl">About these terms</h2>
+    <p class="mt-4 leading-relaxed">
+      By browsing this website or placing an order, you agree to these terms. If you don't agree with them, please
+      don't use the site or place an order.
+    </p>
+
+    <h2 class="font-display mt-12 text-xl sm:text-2xl">Using this website</h2>
+    <p class="mt-4 leading-relaxed">
+      This website and its content — images, text, and design — belong to JTP Skulptur or the respective artist,
+      unless otherwise noted. You may browse and share pages of this site, but you may not copy, reproduce, or
+      reuse images or content without permission.
+      <strong class="text-(--color-clay)"> [Confirm]</strong> exact intellectual-property ownership and any
+      agreements with featured studio partners.
+    </p>
+
+    <h2 class="font-display mt-12 text-xl sm:text-2xl">Artworks &amp; products</h2>
+    <ul class="mt-4 space-y-3 leading-relaxed">
+      <li>
+        Many works offered here are original, one-of-a-kind sculptures. Once a piece is sold, it's marked as no
+        longer available and cannot be purchased again.
+      </li>
+      <li>
+        Availability shown on the site reflects our records at the time, but isn't guaranteed until your payment is
+        confirmed — in rare cases (for example two near-simultaneous orders for the same unique piece), an order may
+        need to be cancelled and refunded if the piece is no longer available.
+      </li>
+      <li>
+        Prices are shown in the currency displayed at checkout.
+        <strong class="text-(--color-clay)"> [Confirm]</strong> whether prices include or exclude VAT/sales tax, and
+        who is responsible for import duties on international orders.
+      </li>
+    </ul>
+
+    <h2 class="font-display mt-12 text-xl sm:text-2xl">Ordering &amp; payment</h2>
+    <p class="mt-4 leading-relaxed">
+      Checkout and payment are handled entirely by Stripe on Stripe's own secure payment page. An order is only
+      confirmed once payment has been successfully processed, at which point you'll receive an order confirmation by
+      email.
+    </p>
+
+    <h2 class="font-display mt-12 text-xl sm:text-2xl">Shipping &amp; delivery</h2>
+    <p class="mt-4 leading-relaxed">
+      <strong class="text-(--color-clay)">[Confirm]</strong> Shipping carriers, estimated delivery windows per
+      region, packaging/insurance for fragile or high-value pieces, and who bears responsibility for customs or
+      import charges on international orders. Shipping regions and rates currently offered at checkout are shown in
+      your cart before you pay.
+    </p>
+
+    <h2 class="font-display mt-12 text-xl sm:text-2xl">Returns, refunds &amp; damaged items</h2>
+    <p class="mt-4 leading-relaxed">
+      <strong class="text-(--color-clay)">[Confirm]</strong> This section is not yet defined and needs the site
+      owner's input before launch — particularly given that many works are unique, one-of-a-kind sculptures. At a
+      minimum this should cover: whether returns are accepted and within what period, the process for a piece
+      damaged in transit, and how refunds are issued.
+    </p>
+
+    <h2 class="font-display mt-12 text-xl sm:text-2xl">Studio partners</h2>
+    <p class="mt-4 leading-relaxed">
+      Some items on this site are supplied by independent makers or studios ("vendors") featured alongside JTP
+      Skulptur's own work.
+      <strong class="text-(--color-clay)"> [Confirm]</strong> who is the seller of record for these items — JTP
+      Skulptur or the individual maker — as this affects which consumer-rights obligations apply.
+    </p>
+
+    <h2 class="font-display mt-12 text-xl sm:text-2xl">Liability</h2>
+    <p class="mt-4 leading-relaxed">
+      <strong class="text-(--color-clay)">[Confirm]</strong> A jurisdiction-appropriate limitation-of-liability
+      clause has not yet been drafted here.
+    </p>
+
+    <h2 class="font-display mt-12 text-xl sm:text-2xl">Governing law</h2>
+    <p class="mt-4 leading-relaxed">
+      <strong class="text-(--color-clay)">[Confirm]</strong> Which country's law governs these terms, and where
+      disputes would be handled.
+    </p>
+
+    <h2 class="font-display mt-12 text-xl sm:text-2xl">Contact</h2>
+    <p class="mt-4 leading-relaxed">
+      {contactEmail ? (
+        <>Questions about these terms can be sent to <a href={`mailto:${contactEmail}`} class="text-(--color-clay) hover:underline">{contactEmail}</a>.</>
+      ) : (
+        <>Questions about these terms can be sent via our <a href="/contact" class="text-(--color-clay) hover:underline">contact page</a>.</>
+      )}
+    </p>
+  </div>
+</Layout>

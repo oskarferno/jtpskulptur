@@ -1,0 +1,42 @@
+---
+// Consent banner + Google Analytics loader. Rendered only on production
+// hostnames (see layouts/Layout.astro); all behaviour lives in lib/analytics.ts.
+---
+
+<div
+  id="cookie-consent"
+  role="region"
+  aria-label="Cookie consent"
+  tabindex="-1"
+  hidden
+  class="fixed inset-x-0 bottom-0 z-50 border-t border-(--color-line) bg-(--color-paper) focus:outline-none"
+>
+  <div class="mx-auto flex max-w-(--measure-full) flex-col gap-4 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-8 sm:px-8">
+    <p class="text-sm leading-relaxed text-(--color-ink-soft)">
+      May we use Google Analytics to understand, anonymously and in aggregate, how this site is used? Nothing is sent
+      to Google unless you accept.{' '}
+      <a href="/cookies" class="text-(--color-clay) underline hover:no-underline">Cookie policy</a>
+    </p>
+    <div class="flex flex-shrink-0 gap-3">
+      <button
+        type="button"
+        data-consent-choice="denied"
+        class="border border-(--color-ink) px-4 py-2 text-sm uppercase tracking-[0.04em] transition-colors hover:bg-(--color-ink) hover:text-(--color-paper)"
+      >
+        Decline
+      </button>
+      <button
+        type="button"
+        data-consent-choice="granted"
+        class="border border-(--color-ink) px-4 py-2 text-sm uppercase tracking-[0.04em] transition-colors hover:bg-(--color-ink) hover:text-(--color-paper)"
+      >
+        Accept
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+  import { initAnalytics } from '../lib/analytics';
+  initAnalytics();
+</script>

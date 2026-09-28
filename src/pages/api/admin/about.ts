@@ -10,6 +10,7 @@ const EDITABLE_FIELDS = [
   'portrait_media_id',
   'short_bio',
   'full_bio',
+  'homepage_bio',
   'artist_statement',
   'cv_media_id',
   'education',
@@ -43,7 +44,10 @@ export const PATCH: APIRoute = async ({ request, locals }) => {
   }
 
   const { data, error } = await supabase.from('about_content').update(update).eq('id', true).select().single();
-  if (error) return jsonError(error.message, 500);
+  if (error) {
+    console.error('[admin about] update failed', error);
+    return jsonError('Could not save. Please try again.', 500);
+  }
 
   return new Response(JSON.stringify({ about: data }), {
     status: 200,

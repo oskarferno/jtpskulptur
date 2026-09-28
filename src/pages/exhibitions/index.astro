@@ -1,7 +1,8 @@
 ---
+import { Image } from 'astro:assets';
 import Layout from '../../layouts/Layout.astro';
 import { getSupabaseClient } from '../../lib/supabase';
-import { publicMediaUrl } from '../../lib/media';
+import { publicMediaUrl, scaledHeight } from '../../lib/media';
 
 const supabase = getSupabaseClient();
 
@@ -18,6 +19,14 @@ const today = new Date().toISOString().slice(0, 10);
 const upcoming = (exhibitions ?? []).filter((e) => !e.end_date || e.end_date >= today);
 const past = (exhibitions ?? []).filter((e) => e.end_date && e.end_date < today);
 
+// Derived purely from start/end date, not a stored field — an exhibition
+// currently spanning today is still bucketed under "Upcoming" above (it
+// hasn't ended yet), but gets this small extra label so it doesn't read as
+// a future date range.
+function isOngoing(e: { start_date: string | null; end_date: string | null }) {
+  return !!e.start_date && !!e.end_date && e.start_date <= today && today <= e.end_date;
+}
+
 function formatRange(start?: string | null, end?: string | null) {
   const fmt = (d: string) => new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
   if (start && end && start !== end) return `${fmt(start)} — ${fmt(end)}`;
@@ -27,9 +36,10 @@ function formatRange(start?: string | null, end?: string | null) {
 ---
 
 <Layout title="Exhibitions — JTP Skulptur" description="Current and past exhibitions of sculpture by Jens Wollinger, JTP Skulptur.">
-  <header class="mx-auto max-w-(--measure-wide) px-4 pt-14 sm:px-8 sm:pt-20">
-    <p class="caption">Exhibitions</p>
-    <h1 class="font-display mt-3 text-3xl sm:text-5xl">Exhibitions</h1>
+  {/* No eyebrow — it would just repeat "Exhibitions" a second time; Portfolio and
+      Shop use the same bare-h1 pattern for the same reason. */}
+  <header class="mx-auto max-w-(--measure-full) px-4 pt-14 sm:px-8 sm:pt-20">
+    <h1 class="font-display text-3xl sm:text-5xl">Exhibitions</h1>
   </header>
 
   <div class="mx-auto max-w-(--measure-wide) px-4 py-10 sm:px-8 sm:py-14">
@@ -46,11 +56,13 @@ function formatRange(start?: string | null, end?: string | null) {
                     <Tag href={e.slug ? `/exhibitions/${e.slug}` : undefined}
                       class:list={['group flex flex-col gap-5 py-8 sm:flex-row sm:items-center sm:gap-10']}>
                       {e.cover ? (
-                        <img
+                        <Image
                           src={publicMediaUrl(e.cover.bucket, e.cover.storage_path)}
                           alt={e.cover.alt_text ?? e.title}
-                          width={e.cover.width ?? undefined}
-                          height={e.cover.height ?? undefined}
+                          width={500}
+                          height={scaledHeight(500, e.cover)}
+                          densities={[1, 1.5, 2]}
+                          quality={80}
                           loading="lazy"
                           class="aspect-[4/3] w-full flex-shrink-0 bg-(--color-paper-raised) object-cover transition-transform duration-700 sm:w-64 group-hover:scale-[1.02]"
                         />
@@ -63,7 +75,10 @@ function formatRange(start?: string | null, end?: string | null) {
                         <p class="mt-2 text-sm text-(--color-ink-soft)">
                           {[e.venue, e.city, e.country].filter(Boolean).join(', ')}
                         </p>
-                        <p class="text-sm text-(--color-ink-faint)">{formatRange(e.start_date, e.end_date)}</p>
+                        <p class="text-sm text-(--color-ink-faint)">
+                          {formatRange(e.start_date, e.end_date)}
+                          {isOngoing(e) && <span class="text-(--color-clay)"> · Now showing</span>}
+                        </p>
                         {e.intro && <p class="mt-3 max-w-lg text-sm leading-relaxed text-(--color-ink-soft)">{e.intro}</p>}
                       </div>
                     </Tag>
@@ -84,11 +99,13 @@ function formatRange(start?: string | null, end?: string | null) {
                     <Tag href={e.slug ? `/exhibitions/${e.slug}` : undefined}
                       class:list={['group flex flex-col gap-5 py-8 sm:flex-row sm:items-center sm:gap-10']}>
                       {e.cover ? (
-                        <img
+                        <Image
                           src={publicMediaUrl(e.cover.bucket, e.cover.storage_path)}
                           alt={e.cover.alt_text ?? e.title}
-                          width={e.cover.width ?? undefined}
-                          height={e.cover.height ?? undefined}
+                          width={500}
+                          height={scaledHeight(500, e.cover)}
+                          densities={[1, 1.5, 2]}
+                          quality={80}
                           loading="lazy"
                           class="aspect-[4/3] w-full flex-shrink-0 bg-(--color-paper-raised) object-cover transition-transform duration-700 sm:w-64 group-hover:scale-[1.02]"
                         />

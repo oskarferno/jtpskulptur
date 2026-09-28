@@ -12,6 +12,13 @@ export function getSupabaseSsrClient(request: Request, cookies: AstroCookies) {
   const { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY } = getEnv();
 
   return createServerClient<Database>(PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY, {
+    // No client-side code ever reads this cookie (no browser Supabase client,
+    // no onAuthStateChange) — tighten the library's defaults (httpOnly:
+    // false, no secure flag) since nothing here needs JS access to it.
+    // `secure` is derived from the request rather than hardcoded true: local
+    // dev runs over plain http://localhost, and browsers silently drop
+    // Secure cookies on non-HTTPS origins.
+    cookieOptions: { httpOnly: true, secure: new URL(request.url).protocol === 'https:', sameSite: 'lax' },
     cookies: {
       getAll() {
         return parseCookieHeader(request.headers.get('Cookie') ?? '');

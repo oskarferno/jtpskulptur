@@ -29,7 +29,10 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
   if ('caption' in body) update.caption = body.caption || null;
 
   const { data, error } = await supabase.from('media').update(update).eq('id', id).select().single();
-  if (error) return jsonError(error.message, 500);
+  if (error) {
+    console.error('[admin media] update failed', error);
+    return jsonError('Could not save. Please try again.', 500);
+  }
 
   return new Response(JSON.stringify({ media: data }), {
     status: 200,

@@ -57,7 +57,11 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
   }
 
   const { data, error } = await supabase.from('posts').update(update).eq('id', id).select().single();
-  if (error) return jsonError(error.message, 500);
+  if (error) {
+    if (error.code === '23505') return jsonError('That slug is already used by another article.');
+    console.error('[admin posts] update failed', error);
+    return jsonError('Could not save. Please try again.', 500);
+  }
 
   return new Response(JSON.stringify({ post: data }), {
     status: 200,
@@ -71,7 +75,10 @@ export const DELETE: APIRoute = async ({ params, locals }) => {
   if (!id) return jsonError('Missing post id.');
 
   const { error } = await supabase.from('posts').delete().eq('id', id);
-  if (error) return jsonError(error.message, 500);
+  if (error) {
+    console.error('[admin posts] delete failed', error);
+    return jsonError('Could not delete. Please try again.', 500);
+  }
 
   return new Response(JSON.stringify({ ok: true }), {
     status: 200,

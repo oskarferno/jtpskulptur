@@ -100,22 +100,50 @@ input:focus-visible, textarea:focus-visible, select:focus-visible {
 /* Single source of truth for the JTP wordmark's rendered size — the header
    is the reference, and the footer (and anywhere else the logo appears)
    consumes this same rule so the two can't drift apart. Breakpoints match
-   Tailwind's default sm/lg (40rem/64rem). */
-.jtp-logo {
-  height: 1rem;
-  width: auto;
+   Tailwind's default sm/lg (40rem/64rem). Sized for the two-tier "JTP |
+   SKULPTUR" mark (large JTP, smaller letter-spaced SKULPTUR) introduced
+   after the original single-size wordmark — the smaller SKULPTUR row needs
+   real height to stay legible, which is why these values are taller than
+   the old logo's despite the wordmark reading just as quiet in place.
+   Desktop deliberately has no separate tier above 64rem: checked
+   1600–1920px and the laptop size still read correctly next to the nav.
+
+   The tiers now live in --logo-height, so anything that should track the
+   logo (currently the hamburger menu links, via --logo-text-size) reads the
+   same value instead of duplicating breakpoints. The logo is an image, so
+   "the size of JTP" means the height of its capitals: measured from
+   public/jtp-skulptur-logo.png they are 245px of the 326px image, 0.755.
+   --logo-text-size is the serif font size whose capitals are exactly that
+   tall. If the logo artwork is ever replaced, re-measure --logo-cap-ratio. */
+:root {
+  --logo-height: 1.25rem;
+  --logo-cap-ratio: 0.755;
+  /* Cap height ÷ font-size of the site's serif stack (Iowan Old Style,
+     Palatino, Georgia all sit at about 0.69–0.70). */
+  --serif-cap-ratio: 0.7;
+  --logo-text-size: calc(var(--logo-height) * var(--logo-cap-ratio) / var(--serif-cap-ratio));
 }
 
 @media (min-width: 40rem) {
-  .jtp-logo {
-    height: 1.25rem;
+  :root {
+    --logo-height: 1.5rem;
   }
 }
 
 @media (min-width: 64rem) {
-  .jtp-logo {
-    height: 1.5rem;
+  :root {
+    --logo-height: 1.75rem;
   }
+}
+
+.jtp-logo {
+  height: var(--logo-height);
+  width: auto;
+}
+
+/* Hamburger menu links: same visual size as the "JTP" in the header logo. */
+.nav-menu-link {
+  font-size: var(--logo-text-size);
 }
 
 /* Slow, gentle reveal for images entering the viewport — degrades to

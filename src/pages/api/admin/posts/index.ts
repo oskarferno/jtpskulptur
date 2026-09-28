@@ -28,7 +28,11 @@ export const POST: APIRoute = async ({ request, locals }) => {
   }
 
   const { data, error } = await supabase.from('posts').insert({ title, slug, published: false }).select().single();
-  if (error) return jsonError(error.message, 500);
+  if (error) {
+    if (error.code === '23505') return jsonError('That slug is already used by another article.');
+    console.error('[admin posts] create failed', error);
+    return jsonError('Could not create article. Please try again.', 500);
+  }
 
   return new Response(JSON.stringify({ post: data }), {
     status: 201,
