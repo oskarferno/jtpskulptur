@@ -15,8 +15,9 @@ if (!slug) {
 const { data: post } = await supabase
   .from('posts')
   .select(
-    `title, excerpt, body, published_at, seo_title, seo_description,
+    `title, excerpt, body, published_at, seo_title, seo_description, hero_focal_x, hero_focal_y,
      cover:cover_media_id (storage_path, bucket, alt_text),
+     content_image:content_image_media_id (storage_path, bucket, alt_text, caption, width, height),
      post_images (display_order, media:media_id (storage_path, bucket, alt_text, caption, width, height))`
   )
   .eq('slug', slug)
@@ -39,10 +40,17 @@ const ogImage = post.cover ? publicMediaUrl(post.cover.bucket, post.cover.storag
 const bodyHtml = renderMarkdown(post.body);
 ---
 
-<Layout title={title} description={post.seo_description ?? post.excerpt ?? undefined} ogImage={ogImage}>
+<Layout title={title} description={post.seo_description ?? post.excerpt ?? undefined} ogImage={ogImage} ogImageFocal={{ x: post.hero_focal_x, y: post.hero_focal_y }}>
   <article>
     {post.cover && (
+      // object-position is applied by the script below, not a style prop
+      // here — the site's CSP is style-src 'self' in production (no
+      // 'unsafe-inline'), which silently drops inline style="" attributes
+      // entirely. Setting el.style.objectPosition from a <script> is a
+      // script-src action, not style-src, so it isn't affected — same
+      // approach as the homepage hero's focal point (src/pages/index.astro).
       <Image
+        id="journal-hero-image"
         src={publicMediaUrl(post.cover.bucket, post.cover.storage_path)}
         alt={post.cover.alt_text ?? post.title}
         width={1600}
@@ -50,7 +58,9 @@ const bodyHtml = renderMarkdown(post.body);
         densities={[1, 2]}
         quality={80}
         fetchpriority="high"
-        class="h-[50svh] w-full object-cover object-top sm:h-[65svh]"
+        class="h-[50svh] w-full object-cover sm:h-[65svh]"
+        data-focal-x={post.hero_focal_x}
+        data-focal-y={post.hero_focal_y}
       />
     )}
 
@@ -61,6 +71,30 @@ const bodyHtml = renderMarkdown(post.body);
       <h1 class="font-display mt-3 text-3xl sm:text-4xl">{post.title}</h1>
       {bodyHtml && <div class="journal-body mt-8 leading-relaxed" set:html={bodyHtml} />}
     </div>
+
+    {/* Admin → Journal → Content image (optional) — a second, independent
+        image slot from the hero above. Same figure treatment as the
+        pre-existing post_images gallery below (object-contain, so the
+        whole photo is always visible, never cropped or distorted), and the
+        same slot/position Exhibitions just gained (content_image_media_id
+        on exhibitions). Renders nothing if not set. */}
+    {post.content_image && (
+      <div class="mx-auto max-w-(--measure-full) px-4 pb-16 sm:px-8">
+        <figure>
+          <Image
+            src={publicMediaUrl(post.content_image.bucket, post.content_image.storage_path)}
+            alt={post.content_image.alt_text ?? post.title}
+            width={1400}
+            height={scaledHeight(1400, post.content_image)}
+            densities={[1, 1.5]}
+            quality={80}
+            loading="lazy"
+            class="mx-auto max-h-[85vh] w-full bg-(--color-paper-raised) object-contain"
+          />
+          {post.content_image.caption && <figcaption class="caption mt-2">{post.content_image.caption}</figcaption>}
+        </figure>
+      </div>
+    )}
 
     {images.length > 0 && (
       <div class="mx-auto max-w-(--measure-full) space-y-4 px-4 pb-16 sm:px-8">
@@ -87,6 +121,21 @@ const bodyHtml = renderMarkdown(post.body);
     </div>
   </article>
 </Layout>
+
+<script>
+  // Applies the hero's admin-set focal point (Admin → Journal → Hero Focal
+  // Point, hero_focal_x/y on posts) — see the comment by the <Image> above
+  // for why this runs via the CSSOM rather than a style="" attribute.
+  // Defaults to 50/50 (center) via the data attributes' own fallback, which
+  // matches the column's own database default for posts saved before this
+  // feature existed.
+  const heroImage = document.getElementById('journal-hero-image') as HTMLImageElement | null;
+  if (heroImage) {
+    const x = heroImage.dataset.focalX ?? '50';
+    const y = heroImage.dataset.focalY ?? '50';
+    heroImage.style.objectPosition = `${x}% ${y}%`;
+  }
+</script>
 
 <style>
   /* Tailwind's preflight strips default heading/list/link styling — this is

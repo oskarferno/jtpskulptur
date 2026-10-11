@@ -4,6 +4,19 @@ export function initNav() {
   const header = document.querySelector<HTMLElement>('#site-header');
   if (!toggle || !panel || !header) return;
 
+  // Input modality, for the mobile menu's programmatic focus only. openMenu()
+  // focuses the first link and closeMenu() focuses the toggle, which keeps
+  // keyboard and screen-reader users oriented — but on iOS Safari a tap
+  // doesn't focus the tapped button, so WebKit treats the script's focus()
+  // as keyboard-style and matches :focus-visible, painting the site's clay
+  // focus ring on "Portfolio" / the hamburger after a plain touch. Recording
+  // whether the last input was a pointer or a key lets global.css hide the
+  // ring for pointer use only; keyboard users still get it. Unset until the
+  // first input, so nothing is ever suppressed without evidence of a pointer.
+  const root = document.documentElement;
+  document.addEventListener('pointerdown', () => { root.dataset.input = 'pointer'; }, true);
+  document.addEventListener('keydown', () => { root.dataset.input = 'keyboard'; }, true);
+
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const CLOSE_DELAY = reduceMotion ? 0 : 220;
   let closeTimer: number | undefined;
@@ -54,6 +67,12 @@ export function initNav() {
 
   window.addEventListener('resize', () => {
     if (isOpen()) syncOffset();
+  });
+
+  // Browser Back can restore this page from the back/forward cache exactly as
+  // it was left — menu mid-close, a tapped link still focused. Settle it.
+  window.addEventListener('pageshow', (event) => {
+    if (event.persisted && isOpen()) closeMenu({ restoreFocus: false });
   });
 
   const desktopQuery = window.matchMedia('(min-width: 75rem)');

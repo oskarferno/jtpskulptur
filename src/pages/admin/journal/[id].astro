@@ -14,7 +14,9 @@ const { data: post } = await supabase
   .from('posts')
   .select(
     `id, title, slug, excerpt, body, published, published_at, seo_title, seo_description,
-     cover_media:cover_media_id (storage_path, bucket, alt_text)`
+     hero_focal_x, hero_focal_y,
+     cover_media:cover_media_id (storage_path, bucket, alt_text),
+     content_image:content_image_media_id (storage_path, bucket, alt_text)`
   )
   .eq('id', id)
   .single();
@@ -24,10 +26,12 @@ if (!post) {
 }
 
 const coverImageUrl = post.cover_media ? publicMediaUrl(post.cover_media.bucket, post.cover_media.storage_path) : null;
+const contentImageUrl = post.content_image ? publicMediaUrl(post.content_image.bucket, post.content_image.storage_path) : null;
 ---
 
 <AdminLayout title={post.title}>
-  <form id="post-form" class="max-w-xl space-y-4" data-post-id={post.id} data-cover-url={coverImageUrl ?? ''}>
+  <form id="post-form" class="max-w-xl space-y-4" data-post-id={post.id} data-cover-url={coverImageUrl ?? ''}
+    data-focal-x={post.hero_focal_x} data-focal-y={post.hero_focal_y} data-content-image-url={contentImageUrl ?? ''}>
     <div class="flex items-center gap-4 text-sm">
       <label class="flex items-center gap-2">
         <input type="checkbox" name="published" checked={post.published} />
@@ -42,6 +46,36 @@ const coverImageUrl = post.cover_media ? publicMediaUrl(post.cover_media.bucket,
     </div>
 
     <ImagePicker idPrefix="cover" label="Hero image" helpText="JPG, PNG, or WebP. Max 20MB. Shown at the top of the article, on the Journal overview, the homepage, and as the social-share image." />
+
+    <div>
+      <label class="block text-sm text-(--color-ink-soft)">Hero Focal Point</label>
+      <p class="mt-1 text-xs text-(--color-ink-faint)">
+        Click (or tap) the most important part of the image below. On the published article, the hero is cropped
+        wide on laptop/desktop screens — this keeps that point in view instead of the automatic center-top crop.
+      </p>
+
+      <div id="focal-wrap" class="relative mt-2 inline-block max-w-full select-none" hidden>
+        <img id="focal-image" alt="" class="block max-h-96 max-w-full cursor-crosshair" />
+        <div
+          id="focal-marker"
+          class="pointer-events-none absolute h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-(--color-clay) bg-(--color-paper)/60 shadow-[0_0_0_1px_rgba(0,0,0,0.3)]"
+        />
+      </div>
+      <p id="focal-no-image" class="mt-2 text-xs text-(--color-ink-faint)">
+        Add a hero image above to set a focal point.
+      </p>
+
+      <div class="mt-4 max-w-md">
+        <p class="text-xs text-(--color-ink-soft)">Article hero preview (approximate, desktop width)</p>
+        <div class="mt-1 aspect-[21/9] w-full overflow-hidden bg-(--color-paper-raised)">
+          <img id="focal-hero-preview" alt="" class="h-full w-full object-cover" />
+        </div>
+      </div>
+    </div>
+
+    <ImagePicker idPrefix="content-image" label="Content image (optional)"
+      helpText="JPG, PNG, or WebP. Max 20MB. Shown underneath the article text — separate from the hero image above. Leave empty to show no content image." />
+
     <div>
       <label for="title" class="block text-sm text-(--color-ink-soft)">Title</label>
       <input id="title" name="title" type="text" required value={post.title}
@@ -99,13 +133,24 @@ const coverImageUrl = post.cover_media ? publicMediaUrl(post.cover_media.bucket,
 
   <script>
     import { renderMarkdown } from '../../../lib/markdown';
-    import { initImagePicker, uploadImage } from '../../../lib/admin-image-picker';
+    import { initImagePicker, initFocalPicker, uploadImage } from '../../../lib/admin-image-picker';
 
     const form = document.getElementById('post-form') as HTMLFormElement;
     const status = document.getElementById('form-status')!;
     const submitButton = form.querySelector('button[type="submit"]') as HTMLButtonElement;
     const deleteButton = document.getElementById('delete-button');
     const postId = form.dataset.postId;
+
+    const focalPicker = initFocalPicker(
+      {
+        wrap: document.getElementById('focal-wrap')!,
+        image: document.getElementById('focal-image') as HTMLImageElement,
+        marker: document.getElementById('focal-marker')!,
+        noImageMessage: document.getElementById('focal-no-image')!,
+        heroPreview: document.getElementById('focal-hero-preview') as HTMLImageElement,
+      },
+      { x: Number(form.dataset.focalX) || 50, y: Number(form.dataset.focalY) || 50 }
+    );
 
     const coverPicker = initImagePicker(
       {
@@ -115,7 +160,23 @@ const coverImageUrl = post.cover_media ? publicMediaUrl(post.cover_media.bucket,
         removeButton: document.getElementById('cover-remove') as HTMLButtonElement,
         status: document.getElementById('cover-status')!,
       },
-      form.dataset.coverUrl || null
+      form.dataset.coverUrl || null,
+      // Keeps the focal picker pointed at whichever image is currently
+      // effective — a newly chosen file, or none once removed — so the
+      // click target and preview never lag behind the picker above it.
+      () => focalPicker.setImageSrc(coverPicker.hasImage() ? (document.getElementById('cover-preview') as HTMLImageElement).src : null)
+    );
+    focalPicker.setImageSrc(coverPicker.hasImage() ? (document.getElementById('cover-preview') as HTMLImageElement).src : null);
+
+    const contentImagePicker = initImagePicker(
+      {
+        fileInput: document.getElementById('content-image-file') as HTMLInputElement,
+        preview: document.getElementById('content-image-preview') as HTMLImageElement,
+        placeholder: document.getElementById('content-image-placeholder')!,
+        removeButton: document.getElementById('content-image-remove') as HTMLButtonElement,
+        status: document.getElementById('content-image-status')!,
+      },
+      form.dataset.contentImageUrl || null
     );
 
     // Renders exactly what the public article page will (same marked
@@ -152,9 +213,14 @@ const coverImageUrl = post.cover_media ? publicMediaUrl(post.cover_media.bucket,
         published: formData.get('published') === 'on',
       };
 
+      const focalPosition = focalPicker.getPosition();
+      payload.hero_focal_x = focalPosition.x;
+      payload.hero_focal_y = focalPosition.y;
+
       submitButton.disabled = true;
       const title = formData.get('title') as string;
       const coverState = coverPicker.getState();
+      const contentImageState = contentImagePicker.getState();
 
       try {
         if (coverState.kind === 'file') {
@@ -162,6 +228,12 @@ const coverImageUrl = post.cover_media ? publicMediaUrl(post.cover_media.bucket,
           payload.cover_media_id = await uploadImage(coverState.file, 'site-media', title);
         } else if (coverState.kind === 'removed') {
           payload.cover_media_id = null;
+        }
+        if (contentImageState.kind === 'file') {
+          status.textContent = 'Uploading content image…';
+          payload.content_image_media_id = await uploadImage(contentImageState.file, 'site-media', title);
+        } else if (contentImageState.kind === 'removed') {
+          payload.content_image_media_id = null;
         }
       } catch (err) {
         status.textContent = err instanceof Error ? err.message : 'Image upload failed.';

@@ -5,17 +5,21 @@ import Footer from '../components/Footer.astro';
 import Analytics from '../components/Analytics.astro';
 import { getSupabaseClient } from '../lib/supabase';
 import { getSiteUrl } from '../lib/site-url';
+import { socialImageUrl } from '../lib/social-image';
 import { isProductionHost } from '../lib/production-host';
 
 interface Props {
   title: string;
   description?: string;
   ogImage?: string;
+  // The image's admin-set focal point (0-100), so the share preview's crop
+  // keeps the subject — see lib/social-image.ts.
+  ogImageFocal?: { x: number; y: number };
   noindex?: boolean;
   jsonLd?: Record<string, unknown>;
 }
 
-const { title, description, ogImage, noindex = false, jsonLd } = Astro.props;
+const { title, description, ogImage, ogImageFocal, noindex = false, jsonLd } = Astro.props;
 // See lib/site-url.ts — this is the current actual host (dev/workers.dev)
 // until PUBLIC_SITE_URL is set at production cutover, not Astro.site (a
 // static build-time value already permanently pointed at jtpskulptur.com).
@@ -26,6 +30,10 @@ const siteOrigin = getSiteUrl(Astro.request);
 // duplicates. middleware.ts also 301s trailing-slash URLs to this same form.
 const canonicalPath = '/' + Astro.url.pathname.replace(/^\/+|\/+$/g, '');
 const canonicalUrl = new URL(canonicalPath, siteOrigin);
+// Share previews get an upright, 1200×630, focal-point-cropped copy rather than
+// the raw upload (which crawlers can show sideways) — see lib/social-image.ts.
+const socialImage = ogImage ? socialImageUrl(siteOrigin, ogImage, ogImageFocal) : undefined;
+const socialImageIsProcessed = !!socialImage && socialImage !== ogImage;
 
 // Analytics (consent banner + Google tag) exists only on the real production
 // hostname — see lib/production-host.ts. Everywhere else (localhost,
@@ -91,8 +99,12 @@ function jsonLdToScript(data: Record<string, unknown>) {
     <meta property="og:title" content={title} />
     {description && <meta property="og:description" content={description} />}
     <meta property="og:url" content={canonicalUrl} />
-    {ogImage && <meta property="og:image" content={ogImage} />}
+    {socialImage && <meta property="og:image" content={socialImage} />}
+    {socialImage && socialImageIsProcessed && <meta property="og:image:type" content="image/jpeg" />}
+    {socialImage && socialImageIsProcessed && <meta property="og:image:width" content="1200" />}
+    {socialImage && socialImageIsProcessed && <meta property="og:image:height" content="630" />}
     <meta name="twitter:card" content="summary_large_image" />
+    {socialImage && <meta name="twitter:image" content={socialImage} />}
 
     {Astro.url.pathname === '/' && (
       <script is:inline type="application/ld+json" set:html={jsonLdToScript(siteJsonLd)} />

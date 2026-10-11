@@ -1,0 +1,32 @@
+-- JTP Skulptur — Exhibition content image.
+--
+-- The Journal article page's "large image underneath the text" (e.g.
+-- https://jtpskulptur.com/journal/working-the-clay) is a single row in
+-- post_images — but there is no Admin UI anywhere for that table; it was
+-- added directly in the database. The equivalent table for exhibitions,
+-- exhibition_images, is the same: no Admin UI exists for it either (its
+-- own note in admin/exhibitions/[id].astro says images are added directly
+-- via the media library and the table), and one exhibition already has a
+-- manually-inserted row there today.
+--
+-- Rather than building a new multi-image gallery admin UI (a much bigger,
+-- genuinely new system, and not what was asked), this adds one more named
+-- image slot directly on exhibitions — the same proven pattern already
+-- used for cover_media_id (migration 0006), about_content.portrait_media_id,
+-- posts.cover_media_id, and site_settings.contact_image_media_id (0024).
+-- The existing exhibition_images gallery is untouched and keeps rendering
+-- exactly as it does today.
+--
+-- Nullable, same convention as every other *_media_id column: NULL means
+-- "no content image", and the public page simply doesn't render that
+-- section — never an empty placeholder.
+--
+-- on delete set null: deleting the file from the media library just clears
+-- this reference rather than being blocked or leaving a dangling id.
+alter table exhibitions
+  add column content_image_media_id uuid references media (id) on delete set null;
+
+-- Access model (nothing new to grant): a column on an existing table,
+-- inheriting exhibitions' existing table privileges and its existing RLS
+-- policies (public read of published rows; admin-only write). No policy or
+-- GRANT is added, and none is loosened.

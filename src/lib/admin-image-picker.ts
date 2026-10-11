@@ -93,6 +93,11 @@ export interface FocalPickerRefs {
   marker: HTMLElement;
   noImageMessage: HTMLElement;
   heroPreview?: HTMLImageElement;
+  // A second live preview, for a page that already has its own image
+  // preview elsewhere (e.g. the Contact Page Image picker's own small
+  // preview) — kept in sync the same way heroPreview is, without that
+  // other preview needing to know the focal point exists.
+  extraPreviews?: HTMLImageElement[];
 }
 
 function clampPercent(n: number): number {
@@ -109,6 +114,9 @@ export function initFocalPicker(refs: FocalPickerRefs, initial: { x: number; y: 
     if (refs.heroPreview) {
       refs.heroPreview.style.objectPosition = `${x}% ${y}%`;
     }
+    for (const preview of refs.extraPreviews ?? []) {
+      preview.style.objectPosition = `${x}% ${y}%`;
+    }
   }
 
   refs.image.addEventListener('click', (event) => {
@@ -122,6 +130,14 @@ export function initFocalPicker(refs: FocalPickerRefs, initial: { x: number; y: 
 
   return {
     getPosition: () => ({ x, y }),
+    // Lets a "Reset focal point" button put the marker (and preview) back
+    // at a given point — normally the column's own database default —
+    // without touching which image is staged.
+    setPosition(newX: number, newY: number) {
+      x = clampPercent(newX);
+      y = clampPercent(newY);
+      render();
+    },
     // Called whenever the effective hero image changes (a new file staged,
     // an existing one removed) — keeps the focal picker and the hero
     // preview pointed at whichever image would actually be used.

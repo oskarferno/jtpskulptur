@@ -20,7 +20,8 @@ const [{ data: settings }, { data: socialLinks }, { data: sideImage }, { data: e
   supabase
     .from('site_settings')
     .select(
-      'contact_intro, contact_email, phone, studio_location, contact_form_enabled, contact_image:contact_image_media_id (storage_path, bucket, alt_text)'
+      `contact_intro, contact_email, phone, studio_location, contact_form_enabled, contact_image_focal_x, contact_image_focal_y,
+       contact_image:contact_image_media_id (storage_path, bucket, alt_text)`
     )
     .single(),
   supabase.from('social_links').select('id, label, url').eq('published', true).order('display_order'),
@@ -52,9 +53,16 @@ const sideAlt = contactImage
 <Layout title="Contact — JTP Skulptur" description={settings?.contact_intro ?? undefined}>
   {/* Capped at the same width as every other page's content, so the left edge of
       "Get in touch" lands in the same place as Portfolio/Exhibitions/etc. at very
-      wide viewports — the split two-column composition itself is unchanged. */}
-  <div class="mx-auto grid max-w-(--measure-full) grid-cols-1 sm:min-h-[70svh] sm:grid-cols-2">
-    <div class="order-2 flex flex-col justify-center px-4 py-14 sm:order-1 sm:px-8 sm:py-20">
+      wide viewports. Stacked at every breakpoint — image above the form — the same
+      order mobile already used; tablet/desktop used to switch to a side-by-side
+      sm:grid-cols-2 split instead, which this removes in favour of carrying that
+      same vertical order up, with the image given the Journal article hero's own
+      desktop/laptop height (sm:h-[65svh], see journal/[slug].astro) and the text
+      column capped to the same --measure-content reading width Journal centers
+      its text under — both only at sm: and up, so mobile (the unprefixed classes
+      below) is untouched. */}
+  <div class="mx-auto grid max-w-(--measure-full) grid-cols-1">
+    <div class="order-2 flex flex-col justify-center px-4 py-14 sm:mx-auto sm:w-full sm:max-w-(--measure-content) sm:px-8 sm:py-20">
       <p class="caption">Contact</p>
       <h1 class="font-display mt-3 text-3xl sm:text-4xl">Get in touch</h1>
 
@@ -132,19 +140,44 @@ const sideAlt = contactImage
     </div>
 
     {sideMedia && (
-      <div class="order-1 sm:order-2">
+      <div class="order-1">
+        {/* object-position is applied by the script below, not a style prop
+            here — the site's CSP is style-src 'self' in production (no
+            'unsafe-inline'), which silently drops inline style="" attributes
+            entirely. Setting el.style.objectPosition from a <script> is a
+            script-src action, not style-src, so it isn't affected — same
+            approach as the Journal/Exhibition heroes and the homepage hero. */}
         <Image
+          id="contact-side-image"
           src={publicMediaUrl(sideMedia.bucket, sideMedia.storage_path)}
           alt={sideAlt}
           width={900}
           height={1200}
           densities={[1, 1.5]}
           quality={80}
-          class="h-[45svh] w-full object-cover object-top sm:h-full"
+          class="h-[45svh] w-full object-cover sm:h-[65svh]"
+          data-focal-x={settings?.contact_image_focal_x}
+          data-focal-y={settings?.contact_image_focal_y}
         />
       </div>
     )}
   </div>
+
+  <script>
+    // Applies the side image's admin-set focal point (Admin → Site Settings
+    // → Contact Page Image → Image Focal Point, contact_image_focal_x/y on
+    // site_settings) — see the comment by the <Image> above for why this
+    // runs via the CSSOM rather than a style="" attribute. Defaults to
+    // 50/0 (center, top) via the data attributes' own fallback, which
+    // matches the column's own database default — i.e. the exact crop this
+    // image always used before this feature existed.
+    const sideImage = document.getElementById('contact-side-image') as HTMLImageElement | null;
+    if (sideImage) {
+      const x = sideImage.dataset.focalX ?? '50';
+      const y = sideImage.dataset.focalY ?? '0';
+      sideImage.style.objectPosition = `${x}% ${y}%`;
+    }
+  </script>
 
   <script>
     const form = document.getElementById('contact-form') as HTMLFormElement | null;

@@ -16,6 +16,8 @@ const EDITABLE_FIELDS = [
   'seo_default_title',
   'seo_default_description',
   'contact_image_media_id',
+  'contact_image_focal_x',
+  'contact_image_focal_y',
 ] as const satisfies readonly (keyof SettingsUpdate)[];
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -45,6 +47,14 @@ export const PATCH: APIRoute = async ({ request, locals }) => {
     const value = body.contact_image_media_id;
     if (value !== null && !(typeof value === 'string' && UUID_RE.test(value))) {
       return jsonError('Invalid Contact page image.');
+    }
+  }
+  for (const field of ['contact_image_focal_x', 'contact_image_focal_y'] as const) {
+    if (field in body) {
+      const value = body[field];
+      if (typeof value !== 'number' || !Number.isInteger(value) || value < 0 || value > 100) {
+        return jsonError(`${field} must be a whole number between 0 and 100.`);
+      }
     }
   }
 

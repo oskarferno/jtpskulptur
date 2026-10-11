@@ -23,7 +23,7 @@ const [
   supabase.from('about_content').select('artist_name, short_bio, homepage_bio').single(),
   supabase
     .from('exhibitions')
-    .select('id, title, venue, city, start_date')
+    .select('id, slug, title, venue, city, start_date')
     .eq('published', true)
     .order('start_date', { ascending: false })
     .limit(3),
@@ -89,16 +89,15 @@ const description = settings?.seo_default_description ?? undefined;
 const ogImage = heroMedia ? publicMediaUrl(heroMedia.bucket, heroMedia.storage_path) : undefined;
 ---
 
-<Layout title={title} description={description} ogImage={ogImage}>
+<Layout title={title} description={description} ogImage={ogImage} ogImageFocal={hero ? { x: hero.hero_focal_x, y: hero.hero_focal_y } : undefined}>
   <h1 class="sr-only">{title}</h1>
   {hero && heroMedia && (
     // Full-bleed, edge-to-edge — no gutters, no max-width container, unlike
-    // every other section on this page. Height is set to exactly the
-    // viewport minus the (sticky, variable-height-by-breakpoint) header by
-    // the script below; the h-[100svh] class here is only a same-ballpark
-    // fallback for the instant before that script runs, so there's never a
-    // flash of a collapsed/zero-height hero.
-    <section id="home-hero" class="relative h-[100svh] w-full overflow-hidden">
+    // every other section on this page. Its height (the screen minus the
+    // sticky header) comes from the .home-hero rule in global.css — pure CSS,
+    // correct from first paint; the script below only keeps --site-header-h
+    // in step with the header's real size. See that rule for why lvh.
+    <section id="home-hero" class="home-hero relative w-full overflow-hidden">
       <a href={`/portfolio/${hero.slug}`} class="block h-full w-full">
         {/* object-position is applied by the script below, not a style prop
             here — the site's CSP is style-src 'self' in production (no
@@ -117,6 +116,7 @@ const ogImage = heroMedia ? publicMediaUrl(heroMedia.bucket, heroMedia.storage_p
           class="h-full w-full object-cover"
           data-focal-x={hero.hero_focal_x}
           data-focal-y={hero.hero_focal_y}
+          loading="eager"
           fetchpriority="high"
         />
       </a>
@@ -124,20 +124,36 @@ const ogImage = heroMedia ? publicMediaUrl(heroMedia.bucket, heroMedia.storage_p
   )}
 
   <script>
-    // Sizes #home-hero to exactly fill the viewport below the sticky
-    // header, whatever that header's actual rendered height is at the
-    // current breakpoint — measured rather than hardcoded per breakpoint,
-    // so it stays correct if the header's own height ever changes (logo
-    // size, nav wrapping, etc.) without this needing to be touched too.
+    // Keeps --site-header-h (read by .home-hero in global.css) equal to the
+    // sticky header's actual rendered height. global.css already carries that
+    // height for each of the header's layouts, so this is a safety net, not
+    // the thing the hero depends on: it corrects the value if the header is
+    // ever restyled, and a ResizeObserver on the header alone means it also
+    // follows rotation / font or logo load / any other size change without a
+    // window `resize` listener. It never observes the hero, so it can't loop.
     const hero = document.getElementById('home-hero');
     const header = document.getElementById('site-header');
 
     if (hero && header) {
-      const sizeHero = () => {
-        hero.style.height = `calc(100svh - ${header.getBoundingClientRect().height}px)`;
+      const root = document.documentElement;
+      let applied = -1;
+      const syncHeaderHeight = (height: number) => {
+        const rounded = Math.round(height * 100) / 100;
+        if (rounded === applied) return;
+        applied = rounded;
+        root.style.setProperty('--site-header-h', `${rounded}px`);
       };
-      sizeHero();
-      window.addEventListener('resize', sizeHero);
+
+      new ResizeObserver((entries) => {
+        const box = entries[0]?.borderBoxSize?.[0];
+        syncHeaderHeight(box ? box.blockSize : header.getBoundingClientRect().height);
+      }).observe(header);
+
+      // A page restored from the back/forward cache keeps its old state;
+      // re-measure in case the device was rotated while it was away.
+      window.addEventListener('pageshow', (event) => {
+        if (event.persisted) syncHeaderHeight(header.getBoundingClientRect().height);
+      });
     }
 
     // Applies the hero's admin-set focal point (see hero_focal_x/y on
@@ -223,15 +239,23 @@ const ogImage = heroMedia ? publicMediaUrl(heroMedia.bucket, heroMedia.storage_p
     <section class="border-t border-(--color-line) px-4 py-20 sm:px-8 sm:py-28">
       <p class="caption">Exhibitions</p>
       <ul class="mt-6 space-y-4 sm:mt-8">
-        {exhibitionRows.map((e) => (
-          <li class="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:gap-4">
-            <span class="text-sm text-(--color-ink-faint)">
-              {e.start_date && new Date(e.start_date).getFullYear()}
-            </span>
-            <span class="font-display text-lg">{e.title}</span>
-            {e.venue && <span class="text-sm text-(--color-ink-soft)">{e.venue}{e.city ? `, ${e.city}` : ''}</span>}
-          </li>
-        ))}
+        {exhibitionRows.map((e) => {
+          // Same fallback as the Exhibitions listing page (exhibitions/index.astro):
+          // only a published exhibition with a slug has a detail page to link to.
+          const Tag = e.slug ? 'a' : 'div';
+          return (
+            <li>
+              <Tag href={e.slug ? `/exhibitions/${e.slug}` : undefined}
+                class="group flex flex-col gap-1 sm:flex-row sm:items-baseline sm:gap-4">
+                <span class="text-sm text-(--color-ink-faint)">
+                  {e.start_date && new Date(e.start_date).getFullYear()}
+                </span>
+                <span class="font-display text-lg group-hover:text-(--color-clay)">{e.title}</span>
+                {e.venue && <span class="text-sm text-(--color-ink-soft)">{e.venue}{e.city ? `, ${e.city}` : ''}</span>}
+              </Tag>
+            </li>
+          );
+        })}
       </ul>
       <a href="/exhibitions" class="mt-8 inline-block text-sm tracking-[0.04em] text-(--color-clay) hover:underline">
         All exhibitions &rarr;

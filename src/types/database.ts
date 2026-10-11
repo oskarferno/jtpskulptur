@@ -176,6 +176,9 @@ export interface Database {
           url: string | null;
           exhibition_type: string | null;
           cover_media_id: string | null;
+          cover_focal_x: number;
+          cover_focal_y: number;
+          content_image_media_id: string | null;
           seo_title: string | null;
           seo_description: string | null;
           published: boolean;
@@ -190,6 +193,13 @@ export interface Database {
           {
             foreignKeyName: 'exhibitions_cover_media_id_fkey';
             columns: ['cover_media_id'];
+            isOneToOne: false;
+            referencedRelation: 'media';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'exhibitions_content_image_media_id_fkey';
+            columns: ['content_image_media_id'];
             isOneToOne: false;
             referencedRelation: 'media';
             referencedColumns: ['id'];
@@ -233,6 +243,9 @@ export interface Database {
           excerpt: string | null;
           body: string | null;
           cover_media_id: string | null;
+          hero_focal_x: number;
+          hero_focal_y: number;
+          content_image_media_id: string | null;
           published: boolean;
           published_at: string | null;
           seo_title: string | null;
@@ -249,6 +262,13 @@ export interface Database {
           {
             foreignKeyName: 'posts_cover_media_id_fkey';
             columns: ['cover_media_id'];
+            isOneToOne: false;
+            referencedRelation: 'media';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'posts_content_image_media_id_fkey';
+            columns: ['content_image_media_id'];
             isOneToOne: false;
             referencedRelation: 'media';
             referencedColumns: ['id'];
@@ -316,6 +336,8 @@ export interface Database {
           seo_default_description: string | null;
           og_image_media_id: string | null;
           contact_image_media_id: string | null;
+          contact_image_focal_x: number;
+          contact_image_focal_y: number;
           updated_at: string;
         };
         Insert: Partial<Database['public']['Tables']['site_settings']['Row']>;
@@ -593,6 +615,7 @@ export interface Database {
           unsubscribed_at: string | null;
           source: string | null;
           created_at: string;
+          confirmation_sent_at: string | null;
         };
         Insert: Partial<Database['public']['Tables']['newsletter_subscribers']['Row']> & { email: string };
         Update: Partial<Database['public']['Tables']['newsletter_subscribers']['Row']>;
@@ -615,7 +638,6 @@ export interface Database {
         };
         Insert: Partial<Database['public']['Tables']['newsletter_campaigns']['Row']> & {
           subject: string;
-          confirmation_sent_at: string | null;
         };
         Update: Partial<Database['public']['Tables']['newsletter_campaigns']['Row']>;
         Relationships: [

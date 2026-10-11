@@ -18,6 +18,9 @@ const EDITABLE_FIELDS = [
   'url',
   'exhibition_type',
   'cover_media_id',
+  'cover_focal_x',
+  'cover_focal_y',
+  'content_image_media_id',
   'seo_title',
   'seo_description',
   'published',
@@ -55,6 +58,17 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
   }
   if (typeof update.slug === 'string' && update.slug && !/^[a-z0-9]+(-[a-z0-9]+)*$/.test(update.slug)) {
     return jsonError('Slug must be lowercase letters, numbers, and hyphens only.');
+  }
+  for (const field of ['cover_focal_x', 'cover_focal_y'] as const) {
+    if (field in update) {
+      const value = update[field];
+      if (typeof value !== 'number' || !Number.isInteger(value) || value < 0 || value > 100) {
+        return jsonError(`${field} must be a whole number between 0 and 100.`);
+      }
+    }
+  }
+  if ('content_image_media_id' in update && update.content_image_media_id !== null && typeof update.content_image_media_id !== 'string') {
+    return jsonError('content_image_media_id must be a media id or null.');
   }
 
   const { data, error } = await supabase.from('exhibitions').update(update).eq('id', id).select().single();

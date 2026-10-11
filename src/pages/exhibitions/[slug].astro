@@ -15,8 +15,9 @@ const { data: exhibition } = await supabase
   .from('exhibitions')
   .select(
     `title, venue, city, country, start_date, end_date, intro, description, exhibition_type, url,
-     seo_title, seo_description,
+     seo_title, seo_description, cover_focal_x, cover_focal_y,
      cover:cover_media_id (storage_path, bucket, alt_text, width, height),
+     content_image:content_image_media_id (storage_path, bucket, alt_text, caption, width, height),
      exhibition_images (display_order, media:media_id (storage_path, bucket, alt_text, caption, width, height))`
   )
   .eq('slug', slug)
@@ -44,10 +45,17 @@ const today = new Date().toISOString().slice(0, 10);
 const isOngoing = !!exhibition.start_date && !!exhibition.end_date && exhibition.start_date <= today && today <= exhibition.end_date;
 ---
 
-<Layout title={title} description={exhibition.seo_description ?? exhibition.intro ?? undefined} ogImage={ogImage}>
+<Layout title={title} description={exhibition.seo_description ?? exhibition.intro ?? undefined} ogImage={ogImage} ogImageFocal={{ x: exhibition.cover_focal_x, y: exhibition.cover_focal_y }}>
   <article>
     {exhibition.cover && (
+      // object-position is applied by the script below, not a style prop
+      // here — the site's CSP is style-src 'self' in production (no
+      // 'unsafe-inline'), which silently drops inline style="" attributes
+      // entirely. Setting el.style.objectPosition from a <script> is a
+      // script-src action, not style-src, so it isn't affected — same
+      // approach as the Journal article hero and the homepage hero.
       <Image
+        id="exhibition-hero-image"
         src={publicMediaUrl(exhibition.cover.bucket, exhibition.cover.storage_path)}
         alt={exhibition.cover.alt_text ?? exhibition.title}
         width={1600}
@@ -55,7 +63,9 @@ const isOngoing = !!exhibition.start_date && !!exhibition.end_date && exhibition
         densities={[1, 2]}
         quality={80}
         fetchpriority="high"
-        class="h-[50svh] w-full object-cover object-top sm:h-[65svh]"
+        class="h-[50svh] w-full object-cover sm:h-[65svh]"
+        data-focal-x={exhibition.cover_focal_x}
+        data-focal-y={exhibition.cover_focal_y}
       />
     )}
 
@@ -83,6 +93,30 @@ const isOngoing = !!exhibition.start_date && !!exhibition.end_date && exhibition
       )}
     </div>
 
+    {/* The large image underneath the text — Admin → Exhibitions → Content
+        image (optional). Same figure treatment as the equivalent image on a
+        Journal article (journal/[slug].astro): object-contain so the whole
+        photo is always visible, never cropped or distorted, at any viewport
+        width. Entirely separate from the cover/hero above and the
+        exhibition_images gallery below; renders nothing if not set. */}
+    {exhibition.content_image && (
+      <div class="mx-auto max-w-(--measure-full) px-4 pb-16 sm:px-8">
+        <figure>
+          <Image
+            src={publicMediaUrl(exhibition.content_image.bucket, exhibition.content_image.storage_path)}
+            alt={exhibition.content_image.alt_text ?? exhibition.title}
+            width={1400}
+            height={scaledHeight(1400, exhibition.content_image)}
+            densities={[1, 1.5]}
+            quality={80}
+            loading="lazy"
+            class="mx-auto max-h-[85vh] w-full bg-(--color-paper-raised) object-contain"
+          />
+          {exhibition.content_image.caption && <figcaption class="caption mt-2">{exhibition.content_image.caption}</figcaption>}
+        </figure>
+      </div>
+    )}
+
     {images.length > 0 && (
       <div class="mx-auto max-w-(--measure-full) space-y-4 px-4 pb-16 sm:px-8">
         {images.map(({ media }) => media && (
@@ -108,3 +142,18 @@ const isOngoing = !!exhibition.start_date && !!exhibition.end_date && exhibition
     </div>
   </article>
 </Layout>
+
+<script>
+  // Applies the cover's admin-set focal point (Admin → Exhibitions → Image
+  // Focal Point, cover_focal_x/y on exhibitions) — see the comment by the
+  // <Image> above for why this runs via the CSSOM rather than a style=""
+  // attribute. Defaults to 50/50 (center) via the data attributes' own
+  // fallback, matching the column's own database default for exhibitions
+  // saved before this feature existed.
+  const heroImage = document.getElementById('exhibition-hero-image') as HTMLImageElement | null;
+  if (heroImage) {
+    const x = heroImage.dataset.focalX ?? '50';
+    const y = heroImage.dataset.focalY ?? '50';
+    heroImage.style.objectPosition = `${x}% ${y}%`;
+  }
+</script>

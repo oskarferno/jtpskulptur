@@ -20,7 +20,7 @@ const [{ data: artwork }, { data: neighbors }] = await Promise.all([
   supabase
     .from('artworks')
     .select(
-      `id, title, year, description, material, dimensions, series, display_order, seo_title, seo_description,
+      `id, title, year, description, material, dimensions, series, display_order, seo_title, seo_description, hero_focal_x, hero_focal_y,
        availability, price, currency, inventory,
        primary_media:primary_image_id (storage_path, bucket, alt_text, width, height),
        artwork_images (display_order, caption, media:media_id (storage_path, bucket, alt_text, width, height))`
@@ -72,7 +72,7 @@ const artworkJsonLd = {
 };
 ---
 
-<Layout title={title} description={description} ogImage={ogImage} jsonLd={artworkJsonLd}>
+<Layout title={title} description={description} ogImage={ogImage} ogImageFocal={{ x: artwork.hero_focal_x, y: artwork.hero_focal_y }} jsonLd={artworkJsonLd}>
   <article>
     {/* Side-by-side on laptop/desktop — an uncropped portrait photo alone in a
         full-width band leaves most of the frame empty; pairing it with its

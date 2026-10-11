@@ -91,6 +91,17 @@ input:focus-visible, textarea:focus-visible, select:focus-visible {
   outline-offset: 0;
 }
 
+/* The mobile menu moves focus by script (first link on open, hamburger on
+   close). After a touch tap, iOS Safari matches :focus-visible for that
+   programmatic focus and would draw the ring above. lib/nav.ts records the
+   last input on <html data-input>; only when it was a pointer is the ring
+   hidden here, and only for those two nav elements. Keyboard use sets
+   data-input="keyboard", so the ring stays for it. */
+html[data-input='pointer'] #nav-toggle:focus-visible,
+html[data-input='pointer'] #mobile-menu a:focus-visible {
+  outline: none;
+}
+
 .caption {
   font-size: var(--text-caption);
   letter-spacing: 0.04em;
@@ -144,6 +155,42 @@ input:focus-visible, textarea:focus-visible, select:focus-visible {
 /* Hamburger menu links: same visual size as the "JTP" in the header logo. */
 .nav-menu-link {
   font-size: var(--logo-text-size);
+}
+
+/* Height of the sticky #site-header, for layout that has to sit exactly
+   below it (the homepage hero). These are the header's real rendered
+   heights — its vertical padding + the 44px hamburger (h-11) or the logo,
+   + the 1px border — at its three layouts (mobile / sm: / nav:, 75rem), so
+   the layout is right in pure CSS from the first paint. src/pages/index.astro
+   then overwrites this with the header's measured height (ResizeObserver),
+   which only matters if the header is ever restyled without updating these. */
+:root {
+  --site-header-h: calc(4.75rem + 1px);
+}
+@media (min-width: 40rem) {
+  :root {
+    --site-header-h: calc(5.25rem + 1px);
+  }
+}
+@media (min-width: 75rem) {
+  :root {
+    --site-header-h: calc(4.25rem + 1px);
+  }
+}
+
+/* Homepage hero: fills the screen below the header. 100lvh, not svh/dvh:
+   on phones with collapsing browser bars, svh is the viewport with the bars
+   fully shown, so whenever the page is seen with the bars collapsed (iOS
+   Safari keeps them that way across navigations) the area below the hero
+   was taller than the hero and "Featured Work" showed in the first screen.
+   lvh is the viewport with the bars collapsed, so the hero is always at
+   least as tall as the visible area; with the bars shown, only the
+   bottom of the cover-cropped image sits under them. dvh would resize the
+   hero (and re-crop the image) as the bars animate while scrolling — the
+   jump this avoids. On desktop and iPad all three units are equal. */
+.home-hero {
+  height: calc(100vh - var(--site-header-h));
+  height: calc(100lvh - var(--site-header-h));
 }
 
 /* Slow, gentle reveal for images entering the viewport — degrades to
