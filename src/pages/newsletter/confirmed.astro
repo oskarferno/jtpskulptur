@@ -2,6 +2,7 @@
 import Layout from '../../layouts/Layout.astro';
 
 const ok = Astro.url.searchParams.get('ok') === '1';
+const reason = Astro.url.searchParams.get('reason');
 ---
 
 <Layout title="Newsletter — JTP Skulptur" noindex>
@@ -13,8 +14,22 @@ const ok = Astro.url.searchParams.get('ok') === '1';
       </>
     ) : (
       <>
-        <h1 class="font-display text-3xl sm:text-4xl">Link expired or invalid</h1>
-        <p class="mt-4 text-(--color-ink-soft)">Please try subscribing again.</p>
+        {reason === 'error' ? (
+          <>
+            <h1 class="font-display text-3xl sm:text-4xl">We couldn't confirm that just now</h1>
+            <p class="mt-4 text-(--color-ink-soft)">Nothing is wrong with your link — please click it again in a minute.</p>
+          </>
+        ) : reason === 'expired' ? (
+          <>
+            <h1 class="font-display text-3xl sm:text-4xl">This link has expired</h1>
+            <p class="mt-4 text-(--color-ink-soft)">Please subscribe again and we'll send you a fresh one.</p>
+          </>
+        ) : (
+          <>
+            <h1 class="font-display text-3xl sm:text-4xl">Link expired or invalid</h1>
+            <p class="mt-4 text-(--color-ink-soft)">Please try subscribing again.</p>
+          </>
+        )}
       </>
     )}
     <a href="/" class="mt-8 text-sm tracking-[0.04em] text-(--color-clay) hover:underline">Back to home &rarr;</a>

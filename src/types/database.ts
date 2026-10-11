@@ -615,6 +615,7 @@ export interface Database {
         };
         Insert: Partial<Database['public']['Tables']['newsletter_campaigns']['Row']> & {
           subject: string;
+          confirmation_sent_at: string | null;
         };
         Update: Partial<Database['public']['Tables']['newsletter_campaigns']['Row']>;
         Relationships: [
